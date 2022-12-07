@@ -1,0 +1,47 @@
+repos:
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v4.4.0
+  hooks:
+  - id: check-case-conflict
+  - id: check-executables-have-shebangs
+  - id: check-shebang-scripts-are-executable
+  - id: check-toml
+  - id: check-yaml
+  - id: debug-statements
+  - id: end-of-file-fixer
+  - id: mixed-line-ending
+    args: [--fix=lf]
+  - id: name-tests-test
+    args: [--pytest-test-first]
+  - id: trailing-whitespace
+
+- repo: https://github.com/psf/black
+  rev: 22.10.0
+  hooks:
+  - id: black
+    types: [python]
+  - id: black-jupyter
+    types: [jupyter]
+
+- repo: https://github.com/PyCQA/isort
+  rev: 5.10.1
+  hooks:
+  - id: isort
+    args: [--profile=black]
+
+- repo: https://github.com/shellcheck-py/shellcheck-py
+  rev: v0.8.0.4
+  hooks:
+    - id: shellcheck
+      name: shellcheck
+      args: ["--severity=style"]
+      stages: [manual]
+
+- repo: local
+  hooks:
+  - id: sanitize-notebooks
+    name: sanitize-notebooks
+    entry: ./scripts/sanitize_notebooks.py
+    language: python
+    types: [jupyter]
+    additional_dependencies: ["nbformat ~= 5.7"]

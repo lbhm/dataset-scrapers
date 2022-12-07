@@ -1,7 +1,8 @@
 ipykernel
-kaggle==1.5.*
-nbformat==5.7.0
-numpy==1.23.*
-openml==0.12.*
-pandas==1.4.*
-tqdm==4.64.*
+kaggle~=1.5
+numpy~=1.23
+openml~=0.13
+pandas~=1.5
+pre-commit
+pymongo~=4.3
+tqdm~=4.64
