@@ -35,7 +35,6 @@ repos:
     - id: shellcheck
       name: shellcheck
       args: ["--severity=style"]
-      stages: [manual]
 
 - repo: local
   hooks:
