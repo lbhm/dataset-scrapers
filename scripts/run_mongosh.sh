@@ -1,7 +1,7 @@
 #!/bin/bash
 
-docker run -it --rm --network mongo-network mongo:6 \
-    mongosh --host mongodb \
+docker run -it --rm --network "${MONGO_NETWORK:-mongo-network}" mongo:6 \
+    mongosh --host "${MONGO_CONTAINER:-mongodb}" \
             -u "$MONGO_USER" \
             -p "$MONGO_PW" \
             --authenticationDatabase admin \
