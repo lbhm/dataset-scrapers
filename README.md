@@ -5,6 +5,24 @@
 
 Scripts for scraping, analyzing, and parsing dataset collections.
 
+## Setup
+
+The scripts assume the existance of the following environment variables:
+
+```bash
+MONGO_HOST
+MONGO_PORT
+MONGO_USER
+MONGO_PW
+MONGO_DBNAME
+```
+
+You can write them into a `.env` file so that they are ignore by Git and load the file with
+
+```bash
+export $(cat .env | xargs)
+```
+
 ## Done
 
 - OpenML
