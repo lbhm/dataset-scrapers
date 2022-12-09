@@ -7,14 +7,18 @@ Scripts for scraping, analyzing, and parsing dataset collections.
 
 ## Setup
 
-The scripts assume the existance of the following environment variables:
+The scripts assume the existance of the following environment variables.
+Except for the username and password, default values are used if the values do not exist.
 
 ```bash
-MONGO_HOST
-MONGO_PORT
 MONGO_USER
 MONGO_PW
-MONGO_DBNAME
+MONGO_HOST=localhost
+MONGO_PORT=27017
+MONGO_DBNAME=datasets
+MONGO_CONTAINER=mongodb
+MONGO_NETWORK=mongo-network
+MONGO_DATADIR=mongodb
 ```
 
 You can write them into a `.env` file so that they are ignore by Git and load the file with
@@ -29,7 +33,7 @@ export $(cat .env | xargs)
 
 ## TODO
 
-- SNAP
+- [SNAP](https://snap.stanford.edu/data/index.html)
 - Kaggle
 
 ## How-To
@@ -41,3 +45,23 @@ rsync --recursive --progress SOURCE DEST
 ```
 
 A trailing slash on the source avoids creating an additional directory level at the destination.
+
+### Query an Array of Embedded Documents in MongoDB
+
+```javascript
+db.openml.find({
+    name: "weather",
+    features: {
+        $elemMatch: {
+            "name": "humidity",
+            data_type: "numeric"
+        },
+        $elemMatch: {
+            name: "windy",
+            data_type: "nominal"
+        }
+    }
+})
+```
+
+Reference at [mongodb.com](https://www.mongodb.com/docs/manual/tutorial/query-array-of-documents/#a-single-nested-document-meets-multiple-query-conditions-on-nested-fields)

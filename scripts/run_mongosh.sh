@@ -5,4 +5,6 @@ docker run -it --rm --network "${MONGO_NETWORK:-mongo-network}" mongo:6 \
             -u "$MONGO_USER" \
             -p "$MONGO_PW" \
             --authenticationDatabase admin \
-            "$MONGO_DBNAME"
+            --eval "disableTelemetry()" \
+            --shell \
+            "${MONGO_DBNAME:-datasets}"

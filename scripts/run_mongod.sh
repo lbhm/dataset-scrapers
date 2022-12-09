@@ -9,9 +9,9 @@ if [ ! "$(docker ps -aqf name="${container}")" ]; then
         --network "${MONGO_NETWORK:-mongo-network}" \
         -p "${MONGO_PORT:-27017}":27017 \
         -v "$parent_path/${MONGO_DATADIR:-mongodb}":/data/db \
-        -e MONGO_INITDB_ROOT_USERNAME="$MONGO_USER" \
-        -e MONGO_INITDB_ROOT_PASSWORD="$MONGO_PW" \
-        -e MONGO_INITDB_DATABASE="$MONGO_DBNAME" \
+        -e MONGO_INITDB_ROOT_USERNAME="${MONGO_USER:?Username not set.}" \
+        -e MONGO_INITDB_ROOT_PASSWORD="${MONGO_PW:?Password not set.}" \
+        -e MONGO_INITDB_DATABASE="${MONGO_DBNAME:-datasets}" \
         mongo:6
 else
     docker start "${container}"
