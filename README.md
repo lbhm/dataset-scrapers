@@ -1,6 +1,7 @@
 # dataset-analyzer
 
-![Python](https://img.shields.io/badge/Python-v3.10-green?logo=python)
+![Python](https://img.shields.io/badge/python-3.10%20|%203.11-informational)
+![License](https://img.shields.io/badge/license-TODO-important)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
 Scripts for scraping, analyzing, and parsing dataset collections.
@@ -8,7 +9,8 @@ Scripts for scraping, analyzing, and parsing dataset collections.
 ## Setup
 
 The scripts assume the existance of the following environment variables.
-Except for the username and password, default values are used if the values do not exist.
+Variables without a default value specified below must be defined first in order for the
+scripts to work correctly.
 
 ```bash
 MONGO_USER
@@ -19,6 +21,8 @@ MONGO_DBNAME=datasets
 MONGO_CONTAINER=mongodb
 MONGO_NETWORK=mongo-network
 MONGO_DATADIR=mongodb
+
+OPENML_BASE
 ```
 
 You can write them into a `.env` file so that they are ignore by Git and load the file with
