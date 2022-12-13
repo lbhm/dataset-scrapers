@@ -64,4 +64,70 @@ db.openml.find({
 })
 ```
 
+<details><summary>More complex queries can be composed like this.</summary>
+```json
+{
+  "$and":[
+    {
+      "name":{
+        "$regex":".*cancer.*",
+        "$options":"i"
+      }
+    },
+    {
+      "attributes":{
+        "$elemMatch":{
+          "$and":[
+            {
+              "name":{
+                "$eq":"age"
+              }
+            },
+            {
+              "dtype":{
+                "$eq":"numeric"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "attributes":{
+        "$elemMatch":{
+          "$and":[
+            {
+              "name":{
+                "$regex":".*smoker.*",
+                "$options":"i"
+              }
+            },
+            {
+              "$or":[
+                {
+                  "dtype":{
+                    "$eq":"categorical"
+                  }
+                },
+                {
+                  "dtype":{
+                    "$eq":"string"
+                  }
+                }
+              ]
+            },
+            {
+              "n_missing_values":{
+                "$lte":10
+              }
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
+```
+</details>
+
 Reference at [mongodb.com](https://www.mongodb.com/docs/manual/tutorial/query-array-of-documents/#a-single-nested-document-meets-multiple-query-conditions-on-nested-fields)

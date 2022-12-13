@@ -47,11 +47,17 @@ def main(argv: Sequence[str] | None = None) -> bool:
     )
     args = parser.parse_args(argv)
 
+    if args.user is None or args.password is None:
+        raise ValueError(
+            f"User and PW must be specified, got {tuple(args.user, args.password)}."
+        )
+
     client = pymongo.MongoClient(
         host=args.host, port=args.port, username=args.user, password=args.password
     )
     db = client[args.database]
     collection = db[args.collection]
+    collection.drop()
 
     errors = []
     for file in args.files:
