@@ -35,18 +35,20 @@ with
 export $(cat .env | xargs)
 ```
 
-## Done
+## Dataset Collections
 
-- OpenML
+### Supported
 
-## TODO
+- [OpenML](https://www.openml.org/search?type=data&sort=runs&status=active)
+
+### TODO
 
 - [SNAP](https://snap.stanford.edu/data/index.html)
-- Kaggle
+- [Kaggle](https://www.kaggle.com/datasets)
 
 ## How-To
 
-### Copy Data Collections
+### Copy Document Collections From a Remote Machine
 
 ```bash
 rsync --recursive --progress SOURCE DEST
@@ -142,4 +144,4 @@ db.openml.find({
 
 </details>
 
-Reference at [mongodb.com](https://www.mongodb.com/docs/manual/tutorial/query-array-of-documents/#a-single-nested-document-meets-multiple-query-conditions-on-nested-fields)
+Reference at [mongodb.com](https://www.mongodb.com/docs/manual/tutorial/query-array-of-documents/#a-single-nested-document-meets-multiple-query-conditions-on-nested-fields).
