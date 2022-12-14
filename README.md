@@ -1,13 +1,16 @@
-# dataset-analyzer
+# dataset-scraper
 
 ![Python](https://img.shields.io/badge/Python-v3.10-green?logo=python)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-Scripts for scraping, analyzing, and parsing dataset collections.
+Notebooks for scraping, analyzing, and parsing dataset collections.
+
+In addition, there are scripts for running a MongoDB container and importing the
+generated JSON files into a MongoDB collection.
 
 ## Setup
 
-The scripts assume the existance of the following environment variables.
+The notebooks and scripts assume the existance of the following environment variables.
 Except for the username and password, default values are used if the values do not exist.
 
 ```bash
@@ -21,7 +24,8 @@ MONGO_NETWORK=mongo-network
 MONGO_DATADIR=mongodb
 ```
 
-You can write them into a `.env` file so that they are ignore by Git and load the file with
+You can write them into a `.env` file so that they are ignore by Git and load the file
+with
 
 ```bash
 export $(cat .env | xargs)
@@ -44,7 +48,8 @@ export $(cat .env | xargs)
 rsync --recursive --progress SOURCE DEST
 ```
 
-A trailing slash on the source avoids creating an additional directory level at the destination.
+A trailing slash on the source avoids creating an additional directory level at the
+destination.
 
 ### Query an Array of Embedded Documents in MongoDB
 
