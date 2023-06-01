@@ -4,10 +4,10 @@
 ![License](https://img.shields.io/badge/license-MIT-green)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-Notebooks for scraping, analyzing, and parsing dataset collections.
+Scripts for scraping, parsing, analyzing, and storing dataset collections.
 
-In addition, there are scripts for running a MongoDB container and importing the
-generated JSON files into a MongoDB collection.
+In addition, there are scripts for running a MongoDB container and importing collections
+of dataset profiles into a MongoDB collection.
 
 ## Setup
 
@@ -25,14 +25,22 @@ MONGO_CONTAINER=mongodb
 MONGO_NETWORK=mongo-network
 MONGO_DATADIR=mongodb
 
-OPENML_BASE=data/openml
+RAW_DATADIR=data
 ```
 
-You can write them into a `.env` file so that they are ignore by Git and load the file
+You can write them into a `.env` file so that they are ignored by Git and load the file
 with
 
 ```bash
 export $(cat .env | xargs)
+```
+
+You also need to install the dependencies specified in `requirements.txt`.
+
+```bash
+virtualenv venv
+source venv/bin/activate
+pip install -r requirements.txt
 ```
 
 ## Dataset Collections
@@ -43,8 +51,12 @@ export $(cat .env | xargs)
 
 ### TODO
 
+- [GitTables](https://gittables.github.io/)
 - [SNAP](https://snap.stanford.edu/data/index.html)
 - [Kaggle](https://www.kaggle.com/datasets)
+- [Open Data Portal Watch](https://data.wu.ac.at/portalwatch)
+  - Service unavailable as of June 1, 2023
+  - Source code on [GitHub](https://github.com/sebneu/portalwatch)
 
 ## How-To
 

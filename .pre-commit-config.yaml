@@ -16,7 +16,7 @@ repos:
   - id: trailing-whitespace
 
 - repo: https://github.com/psf/black
-  rev: 22.10.0
+  rev: 23.3.0
   hooks:
   - id: black
     types: [python]
@@ -24,13 +24,13 @@ repos:
     types: [jupyter]
 
 - repo: https://github.com/PyCQA/isort
-  rev: 5.10.1
+  rev: 5.12.0
   hooks:
   - id: isort
     args: [--profile=black]
 
 - repo: https://github.com/shellcheck-py/shellcheck-py
-  rev: v0.8.0.4
+  rev: v0.9.0.2
   hooks:
     - id: shellcheck
       name: shellcheck
@@ -40,7 +40,7 @@ repos:
   hooks:
   - id: sanitize-notebooks
     name: sanitize-notebooks
-    entry: ./scripts/sanitize_notebooks.py
+    entry: ./utils/sanitize_notebooks.py
     language: python
     types: [jupyter]
     additional_dependencies: ["nbformat ~= 5.7"]
