@@ -35,12 +35,15 @@ with
 export $(cat .env | xargs)
 ```
 
-You also need to install the dependencies specified in `requirements.txt`.
+You also need to install the dependencies specified in `requirements.txt` and configure
+`pre-commit`.
 
 ```bash
 virtualenv venv
 source venv/bin/activate
 pip install -r requirements.txt
+
+pre-commit install
 ```
 
 ## Dataset Collections
