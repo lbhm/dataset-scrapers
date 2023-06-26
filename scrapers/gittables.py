@@ -39,9 +39,12 @@ def create_profiles(path: str, additional_data: list):
     parquet_dir = os.path.join(path, "parquets")
     json_dir = os.path.join(path, "jsons")
     os.makedirs(json_dir, exist_ok=True)
-    fails = []
-    for sub_dir in tqdm(os.listdir(parquet_dir)):
-        for filename in os.listdir(os.path.join(parquet_dir, sub_dir)):
+    json_fails = []
+    additional_fails = []
+    for sub_dir in tqdm(os.listdir(parquet_dir), position=1, leave=True):
+        for filename in tqdm(
+            os.listdir(os.path.join(parquet_dir, sub_dir)), position=0, leave=True
+        ):
             try:
                 table = pq.read_table(os.path.join(parquet_dir, sub_dir, filename))
                 dataframe = pd.read_parquet(
@@ -94,21 +97,28 @@ def create_profiles(path: str, additional_data: list):
                         ][col["name"]]
 
                     for a in additional_data:
-                        if a[1](gt_metadata, col["name"]):
-                            result = a[2](dataframe[col["name"]])
-                            col[a[0]] = result
+                        try:
+                            if a[1](gt_metadata, col["name"]):
+                                result = a[2](dataframe[col["name"]])
+                                col[a[0]] = result
+                        except Exception as e:
+                            additional_fails.append(e)
                 with open(
                     os.path.join(json_dir, f"{sub_dir}_{filename[:-8]}.json"), "w"
                 ) as file:
                     json.dump(profile, file)
             except Exception as e:
-                fails.append({filename: e})
-    if len(fails) != 0:
+                json_fails.append({filename: e})
+    if len(json_fails) != 0:
         print(
-            f"Failed to create json for the following files due to the respective errors: {fails}"
+            f"Failed to create json for the following files due to the respective errors: {json_fails}"
         )
         print(
-            f"There were {len(fails)} fails in total. A few fails is the expected behavior."
+            f"Failed to create json {len(json_fails)} times. A few fails is the expected behavior."
+        )
+    if len(additional_fails) != 0:
+        print(
+            f"Failed to create additional data {len(additional_fails)} times. Some fails is the expected behavior."
         )
 
 
@@ -118,33 +128,33 @@ if __name__ == "__main__":
     record_id = 6517052
     download_and_unzip(record_id, base_path)
 
-    # syntax: ('name', condition(metadata, column_name: str), function(column: dataframe))
+    # syntax: (name: str, Callable(metadata: dict, column_name: str), Callable(column: pd.Series)
     numeric = ["int64", "float64"]
     additional = [
-        ("null_count", (lambda g, c: True), (lambda c: int(c.isnull().sum()))),
+        ("null_count", (lambda m, cn: True), (lambda c: int(c.isnull().sum()))),
         (
             "max",
-            (lambda g, c: g["dtypes"][c] in numeric),
+            (lambda m, cn: m["dtypes"][cn] in numeric),
             (lambda c: c.max()),
         ),
         (
             "min",
-            (lambda g, c: g["dtypes"][c] in numeric),
+            (lambda m, cn: m["dtypes"][cn] in numeric),
             (lambda c: c.min()),
         ),
         (
             "mean",
-            (lambda g, c: g["dtypes"][c] in numeric),
+            (lambda m, cn: m["dtypes"][cn] in numeric),
             (lambda c: float(c.mean())),
         ),
         (
             "median",
-            (lambda g, c: g["dtypes"][c] in numeric),
+            (lambda m, cn: m["dtypes"][cn] in numeric),
             (lambda c: c.median()),
         ),
         (
             "stdev",
-            (lambda g, c: g["dtypes"][c] in numeric),
+            (lambda m, cn: m["dtypes"][cn] in numeric),
             (lambda c: c.std()),
         ),
     ]
