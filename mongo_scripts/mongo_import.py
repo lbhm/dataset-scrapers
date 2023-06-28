@@ -6,6 +6,7 @@ from typing import Sequence
 
 import pymongo
 from pymongo.errors import DocumentTooLarge, OperationFailure
+from tqdm import tqdm
 
 """
 Import all JSON files from a directory into a MongoDB collection.
@@ -43,7 +44,11 @@ def main(argv: Sequence[str] | None = None) -> bool:
         "--collection", "-c", type=str, required=True, help="Collection to import into"
     )
     parser.add_argument(
-        "--files", "-f", type=str, required=True, nargs="+", help="A list of JSON files"
+        "--directory",
+        "-dir",
+        type=str,
+        required=True,
+        help="A directory containing JSON files",
     )
     args = parser.parse_args(argv)
 
@@ -60,8 +65,8 @@ def main(argv: Sequence[str] | None = None) -> bool:
     collection.drop()
 
     errors = []
-    for file in args.files:
-        with open(file, "r") as fp:
+    for file in tqdm(os.listdir(args.directory)):
+        with open(os.path.join(args.directory, file), "r") as fp:
             try:
                 _ = collection.insert_one(json.load(fp))
             except (DocumentTooLarge, OperationFailure) as ex:
