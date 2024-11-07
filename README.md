@@ -1,6 +1,6 @@
 # dataset-scraper
 
-![Python](https://img.shields.io/badge/python-3.10%20|%203.11-informational)
+![Python](https://img.shields.io/badge/python-3.10%20--%203.12-informational)
 ![License](https://img.shields.io/badge/license-MIT-green)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
