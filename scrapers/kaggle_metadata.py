@@ -1,25 +1,47 @@
-import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from kaggle.api.kaggle_api_extended import KaggleApi
-from kaggle.rest import ApiException
+from contextlib import redirect_stderr
 import tqdm
 import os
 import requests
 import json
 import re
-
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from kaggle.api.kaggle_api_extended import KaggleApi, ApiException
+from io import StringIO
+#import mlcroissant as mlc # causes NoneType error in the end
+ 
 # authentification
 api = KaggleApi()
 api.authenticate()
 
 API_LIMIT = 200 # max requests per minute
-MAX_PAGES = 10  # max pages
-MAX_WORKERS = 3
-OUTPUT_DIR = "../data"
+MAX_PAGES = 2  # max pages
+MAX_WORKERS = 1
+MAX_SIZE = 100000 # max datasets size in bytes
+OUTPUT_DIR = "../kaggle_datasets"
 
-def get_croissant_metadata(result):
-    response_string = requests.get("https://www.kaggle.com/datasets/" + result.ref + "/croissant/download").content.decode("utf-8") 
+# transform URIRef("https://...") keys
+def edit_json_data(json: dict):
+    new_json = {}
+    for key, value in json.items():
+        string_key = str(key)
+        last_slash_index = string_key.rfind('/')
+        if last_slash_index == -1:
+            new_json[key] = value
+        else: 
+            new_json[string_key[last_slash_index + 1:]] = value
+    return new_json
+    
+
+def get_croissant_metadata(ref):
+    url = "https://www.kaggle.com/datasets/" + ref + "/croissant/download"
+    response_string = requests.get(url).content.decode("utf-8") 
     return json.loads(response_string)
+    #fnull = StringIO()
+    #with redirect_stderr(fnull): # hide annoying err prints
+    #    response = mlc.Dataset(url).metadata.jsonld
+    #return edit_json_data(response)
+
 
 def sanitize_filename(filename):
     return re.sub(r'[<>:"/\\|?*]', '_', filename)
@@ -28,26 +50,25 @@ def sanitize_filename(filename):
 def fetch_page(page):
     try:
         results = api.dataset_list(
-            sort_by="hottest",  
+            sort_by="hottest",    
             file_type="csv",     
             license_name="all", 
-            page=page,           
+            page=page,
+            max_size=MAX_SIZE
         )
-        results = [get_croissant_metadata(result) for result in results]
+        metadata = [{"ref": result.ref, "jsonld": get_croissant_metadata(result.ref)} for result in results]
         time.sleep(60 * MAX_WORKERS / API_LIMIT)
-        return results
-    except Exception as e:
+        return metadata
+    except ApiException as e:
         return {"error": e, "page": page}
     
 def save_metadata(metadata):
     os.makedirs(OUTPUT_DIR, exist_ok=True)
-    # save results
-    dir_metadata = os.path.join(OUTPUT_DIR, "kaggle_metadata")
-    os.makedirs(dir_metadata, exist_ok=True)
     for m in metadata:
-        filename = f"{sanitize_filename(m['name'])}.json"
-        filepath = os.path.join(dir_metadata, filename)
-        with open(filepath, "w") as json_file:
+        dirname = f"{sanitize_filename(m['jsonld']['name'])}"
+        dirpath = os.path.join(OUTPUT_DIR, dirname)
+        os.makedirs(dirpath, exist_ok=True)
+        with open(os.path.join(dirpath, dirname + ".json"), "w") as json_file:
             json.dump(m, json_file, indent=4)
 
 def collect_metadata():
