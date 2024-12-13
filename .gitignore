@@ -163,6 +163,6 @@ cython_debug/
 .vscode/
 
 # Data directories
+kaggle_metadata/
 data/
 mongodb/
-kaggle_datasets/
