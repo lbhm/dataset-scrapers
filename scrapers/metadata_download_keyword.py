@@ -7,6 +7,7 @@ import requests
 import json
 import re
 import time
+import subprocess
 from kaggle.api.kaggle_api_extended import KaggleApi
 from TaskQueue import TaskQueue
 import pandas as pd
@@ -19,14 +20,29 @@ api = KaggleApi()
 api.authenticate()
 
 MAX_WORKERS = 1
+MAX_PAGES = 100
 OUTPUT_DIR = "../kaggle_metadata"   
-METAKAGGLE_DIR = "../data" 
+METAKAGGLE_DIR = "../data"
+
+refs = [] 
+total_size = 0
 
 metadata = 0
 errors = 0
 
-with open(os.path.join(METAKAGGLE_DIR, "username_slug.txt"), "r") as file:
-    total_size = sum(1 for _ in file)
+def search_kaggle_datasets(keyword):
+    global refs, total_size
+    try:
+        for page in range(1, MAX_PAGES):
+            datasets = api.dataset_list(search=keyword, page=page)
+            refss = [data.ref for data in datasets]
+            if refss == []:
+                break
+            refs.extend(refss)
+    except Exception as e:
+        print("Ein Fehler ist aufgetreten:", e)
+        return
+    total_size = len(refs)
 
 def get_croissant_metadata(ref):
     url = "https://www.kaggle.com/datasets/" + ref + "/croissant/download"
@@ -72,15 +88,13 @@ def process_ref(ref: str, progress: tqdm.tqdm):
     
 
 def collect_metadata(start_index: int):  
-        
-    queue = TaskQueue(MAX_WORKERS)
-        
-    with open(os.path.join(METAKAGGLE_DIR, "username_slug.txt"), "r") as file, tqdm.tqdm(total=total_size, desc="Processing datasets") as progress:
-        for line in file:
+    global refs
+    queue = TaskQueue(MAX_WORKERS)    
+    with tqdm.tqdm(total=total_size, desc="Processing datasets") as progress:
+        for ref in refs:
             if progress.n < start_index:
                 progress.update(1)
                 continue
-            ref = line.strip()
             queue.add_task(process_ref, ref=ref, progress=progress)
             time.sleep(0.1)
         queue.join()
@@ -98,7 +112,7 @@ def main():
     else:
         start_index = int(sys.argv[1])
         print(f"Using {start_index} as start index")
-        
+    search_kaggle_datasets("lung cancer")
     collect_metadata(start_index) 
     finish_prints()
     
