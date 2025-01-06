@@ -123,7 +123,7 @@ def plot_file_types():
 
 def main():
     for path in Path(METADATA_DIR).rglob("*"):
-        if path.is_file():
+        if path.is_file() and path.suffix == ".json":
             analyze_metadata(path)
     
     plot_csv_file_count()
