@@ -77,6 +77,7 @@ def process_ref(ref: str, progress: tqdm.tqdm):
         save_metadata({"ref": ref, "jsonld": result})
         metadata += 1
     elif status == -2:
+        os.makedirs(METAKAGGLE_DIR, exist_ok=True)
         with open(os.path.join(METAKAGGLE_DIR, "error_datasets.txt"), "a") as file:
             file.write(f"{ref},{result}\n") 
         errors += 1

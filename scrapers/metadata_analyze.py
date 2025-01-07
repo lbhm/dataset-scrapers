@@ -13,7 +13,7 @@ record_count = 0 # datasets with recordset
 
 file_types_count = {} # file type : frequency
 file_sizes = []
-row_count = []
+column_count = []
 csv_file_count = []
 
 unit_multipliers = {
@@ -64,23 +64,24 @@ def analyze_metadata(path: Path):
     # no csv files so we continue
     if nfiles == 0:
         return
-    
+
     file_sizes.append(convert_to_kb(size))
-    
+
     # analyze recordSet if given
     if "recordSet" not in data["jsonld"]:
         return
+
     records = data["jsonld"]["recordSet"]
     record_count += 1
     for file in records:
-        rows = 0
-        # collect data types in rows
-        for row in file["field"]:
-            data_type = row["dataType"][0].rsplit(":", 1)[-1]
+        columns = 0
+        # collect data types in columns
+        for column in file["field"]:
+            data_type = column["dataType"][0].rsplit(":", 1)[-1]
             add_count(file_types_count, data_type)
-            rows += 1
-        # collect row counts
-        row_count.append(rows)
+            columns += 1
+        # collect column counts
+        column_count.append(columns)
         
 def plot_csv_file_count(max_files = 100):
     global csv_file_count
@@ -93,9 +94,10 @@ def plot_csv_file_count(max_files = 100):
     plt.ylabel("frequency")
     plt.title(f"CSV file count distribution ({round(tabular/total * 100, 2)}% > 0)")   
     
-def plot_file_sizes(max_size = 2000):
+def plot_file_sizes(max_size = 100000):
     global file_sizes
     sum_size, unit = convert_to_highest(sum(file_sizes))
+    print(f"outliers file sizes: {len([count for count in file_sizes if count > max_size])}")
     file_sizes = [count for count in file_sizes if count < max_size]
     plt.figure(f"sizes of tabular datasets until {max_size} KB")
     plt.hist(file_sizes, bins=500, color='red', edgecolor='black', alpha=0.7)
@@ -103,14 +105,14 @@ def plot_file_sizes(max_size = 2000):
     plt.ylabel("frequency")
     plt.title(f"dataset size distribution of tabular datasets (.zip file). Total: {round(sum_size, 2)} {unit}")
     
-def plot_row_count(max_rows = 100):
-    global row_count
-    row_count = [count for count in row_count if count < max_rows]
-    plt.figure(f"row counts of tabular datasets until {max_rows} rows")
-    plt.hist(row_count, bins=500, color='yellow', edgecolor='black', alpha=0.7)
-    plt.xlabel("rows of tabular files")
+def plot_column_count(max_columns = 100):
+    global column_count
+    column_count = [count for count in column_count if count < max_columns]
+    plt.figure(f"column counts of tabular datasets until {max_columns} columns")
+    plt.hist(column_count, bins=500, color='yellow', edgecolor='black', alpha=0.7)
+    plt.xlabel("columns of tabular files")
     plt.ylabel("frequency")
-    plt.title(f"row count distribution of datasets with recordset key")   
+    plt.title(f"column count distribution of datasets with recordset key")   
     
 def plot_file_types():
     plt.figure("file types of tabular datasets")
@@ -123,12 +125,12 @@ def plot_file_types():
 
 def main():
     for path in Path(METADATA_DIR).rglob("*"):
-        if path.is_file() and path.suffix == ".json":
+        if path.is_file() and str(path).endswith("metadata.json"):
             analyze_metadata(path)
     
     plot_csv_file_count()
     plot_file_sizes()
-    plot_row_count()
+    plot_column_count()
     plot_file_types()
 
     plt.show()
