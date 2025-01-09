@@ -165,4 +165,5 @@ cython_debug/
 # Data directories
 kaggle_metadata/
 data/
+croissant/
 mongodb/

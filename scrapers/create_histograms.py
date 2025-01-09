@@ -1,16 +1,15 @@
-from curses import meta
 import os
 import json
 import pandas as pd
 import numpy as np
 import cchardet
-import csv
 import tqdm
 from collections import Counter
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
-SOURCE_DIR = "../kaggle_metadata" 
+SOURCE_DIR = "../kaggle_metadata"
+RESULT_DIR = "../croissant"
 total_count = 0
 
 def detect_separator(csv_file: str, encoding: str) -> str:
@@ -21,10 +20,8 @@ def detect_separator(csv_file: str, encoding: str) -> str:
     return max(counts, key=counts.get) if counts else ","
         
 
-def process_dataset(path: str, bin_count: int = 10):
+def process_dataset(path: str, bin_count: int):
     csv_exists = any(file.endswith(".csv") for file in os.listdir(path))
-    if path == "../kaggle_metadata/edenbravo/world-wide-pollution-dataset":
-        pass
     # return if there are no csv files
     if not csv_exists:
         return
@@ -32,8 +29,10 @@ def process_dataset(path: str, bin_count: int = 10):
     metadata_path = os.path.join(path, "metadata.json")
     with open(metadata_path, "r", encoding="utf-8") as file:
         metadata = json.load(file)   
-    
-    records = metadata["jsonld"]["recordSet"]
+    try:
+        records = metadata["jsonld"]["recordSet"]
+    except:
+        print("Warning: Found dataset without recordset")
     for file in records:
         csv_file = os.path.join(path, file["@id"].replace("+", " "))
         # guess appropiate encoding
@@ -82,10 +81,8 @@ def count_total():
                 dataset_path = os.path.join(user_path, dataset_folder)
                 if os.path.isdir(dataset_path):
                     total_count += 1                   
-
-
-def main():
-    count_total()
+                        
+def create_histograms(bin_count: int = 10):
     with tqdm.tqdm(total=total_count, desc="processing datasets") as progress:
         for user_folder in os.listdir(SOURCE_DIR):
             user_path = os.path.join(SOURCE_DIR, user_folder)
@@ -94,11 +91,34 @@ def main():
                     dataset_path = os.path.join(user_path, dataset_folder)
                     if os.path.isdir(dataset_path):
                         try:
-                            process_dataset(dataset_path)
+                            process_dataset(dataset_path, bin_count)
                         except Exception as e:
                             print(f"Error occurred with {dataset_path}: {e}")
                         progress.update(1)
 
+def save_results():
+    os.makedirs(RESULT_DIR, exist_ok=True)
+    for user_folder in os.listdir(SOURCE_DIR):
+        user_path = os.path.join(SOURCE_DIR, user_folder)
+        if os.path.isdir(user_path):
+            for dataset_folder in os.listdir(user_path):
+                dataset_path = os.path.join(user_path, dataset_folder)
+                if os.path.isdir(dataset_path):
+                    # get metadata
+                    with open(os.path.join(dataset_path, "metadata.json"), "r") as f:
+                        metadata = json.load(f)
+                    # using ref as metadata filename
+                    ref = "/".join(dataset_path.split("/")[2:]).replace("/", "_")
+                    # write metadata in RESULT_DIR
+                    with open(os.path.join(RESULT_DIR, ref + ".json"), "w") as f:
+                        json.dump(metadata, f, indent=4, ensure_ascii=False)
+
+def main():
+    count_total()
+    create_histograms()
+    save_results()
+    print("Done!")
+
 if __name__ == "__main__":
     main()
-    print("Done!")
+    

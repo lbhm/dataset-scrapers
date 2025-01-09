@@ -3,6 +3,7 @@ from kaggle.api.kaggle_api_extended import KaggleApi
 import os
 import tqdm
 import json
+import shutil
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
@@ -70,7 +71,10 @@ def main():
                     download_dataset(path)
                     downloaded_size += 1
                 else:
-                    print(f"skipped {path.parent}") 
+                    shutil.rmtree(path.parent)
+                    if not any(path.parent.parent.iterdir()):
+                        shutil.rmtree(path.parent.parent)
+                    print(f"removed {path.parent}") 
                 progress.update(1) 
 
     print(f"{downloaded_size} datasets downloaded ({round(downloaded_size / total_size * 100, 2)}%).")
