@@ -1,6 +1,3 @@
-from concurrent.futures import ThreadPoolExecutor
-from multiprocessing import process
-from queue import Queue
 import tqdm
 import os
 import requests

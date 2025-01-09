@@ -12,6 +12,7 @@ api.authenticate()
 METADATA_DIR = "../kaggle_metadata" 
 
 total_size = 0
+downloaded_size = 0
 
 unit_multipliers = {
         "B": 1/(1024**2),
@@ -60,15 +61,19 @@ def count_total():
             total_size += 1   
 
 def main():
+    global downloaded_size
     count_total()
     with tqdm.tqdm(total=total_size, desc="downloading datasets") as progress:
         for path in Path(METADATA_DIR).rglob("*"):
             if path.is_file() and str(path).endswith("metadata.json"):
                 if conditions_fullfilled(path):
                     download_dataset(path)
+                    downloaded_size += 1
                 else:
-                    print(f"skipped {path}") 
-                progress.update(1)  
+                    print(f"skipped {path.parent}") 
+                progress.update(1) 
+
+    print(f"{downloaded_size} datasets downloaded ({round(downloaded_size / total_size * 100, 2)}%).")
 
 if __name__ == "__main__":
     main()

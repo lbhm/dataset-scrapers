@@ -1,4 +1,3 @@
-from operator import mul
 from pathlib import Path
 import json
 import matplotlib.pyplot as plt
