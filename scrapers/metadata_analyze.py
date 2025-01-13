@@ -49,7 +49,7 @@ def analyze_metadata(path: Path):
     analyzed += 1
     
     # analyze distribution
-    distribution = data["jsonld"]["distribution"]
+    distribution = data["distribution"]
     nfiles = 0
     for item in distribution:
         # csv in @id indicates a tabular file
@@ -67,10 +67,10 @@ def analyze_metadata(path: Path):
     file_sizes.append(convert_to_kb(size))
 
     # analyze recordSet if given
-    if "recordSet" not in data["jsonld"]:
+    if "recordSet" not in data:
         return
 
-    records = data["jsonld"]["recordSet"]
+    records = data["recordSet"]
     record_count += 1
     for file in records:
         columns = 0

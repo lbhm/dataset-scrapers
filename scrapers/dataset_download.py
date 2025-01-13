@@ -34,7 +34,7 @@ def conditions_fullfilled(path: Path) -> bool:
     with path.open("r", encoding="utf-8") as file:
         data = json.load(file)  
 
-    distribution = data["jsonld"]["distribution"]
+    distribution = data["distribution"]
     for item in distribution:
         # contentSize indicates size of .zip download file
         if "contentSize" in item:
@@ -45,16 +45,45 @@ def conditions_fullfilled(path: Path) -> bool:
     if convert_to_mb(size) > 100:
         return False
     # dataset has no recordSet
-    if "recordSet" not in data["jsonld"]:
+    if "recordSet" not in data:
         return False
     
     return True
 
 def download_dataset(path: Path):
-    download_dir = str(path.parent)
+    download_dir = str(path)
     ref = "/".join(download_dir.split("/")[2:])
     api.dataset_download_files(ref, path=download_dir, unzip=True)
     
+def exists(target_path: Path, base_dir: Path) -> bool:
+    for path in base_dir.rglob("*.csv"):
+        if path.is_file():
+            if target_path != path and target_path.name == path.name:
+                return True
+    return False
+    
+def flatten_csv_folders(base_dir: Path):
+    if str(base_dir).startswith(METADATA_DIR + "/jeypimendoza"):
+        pass
+    rename_list: list[tuple[Path, Path]] = []
+    for path in base_dir.rglob("*.csv"):
+        if path.is_file():
+            target_path = base_dir / path.name
+            # skip if it is already flat
+            if target_path == path:
+                continue
+            # resolve path conflicts
+            if exists(path, base_dir):
+                target_path = base_dir / f"{path.parent.name}_{path.name}"
+            rename_list.append((path, target_path))
+    # rename afterwards to avoid problems
+    for src, target in rename_list:
+        src.rename(target)
+    # delete empty directories
+    for folder in sorted(base_dir.rglob("*"), key=lambda p: -len(p.parts)): # start from the bottom
+        if folder.is_dir() and not any(folder.iterdir()):
+            folder.rmdir()
+        
 def count_total():
     global total_size
     for path in Path(METADATA_DIR).rglob("*"):
@@ -67,11 +96,14 @@ def main():
     with tqdm.tqdm(total=total_size, desc="downloading datasets") as progress:
         for path in Path(METADATA_DIR).rglob("*"):
             if path.is_file() and str(path).endswith("metadata.json"):
+                # filter datasets by conditions
                 if conditions_fullfilled(path):
-                    download_dataset(path)
+                    download_dataset(path.parent)
+                    flatten_csv_folders(path.parent)
                     downloaded_size += 1
                 else:
                     shutil.rmtree(path.parent)
+                    # delete empty directories
                     if not any(path.parent.parent.iterdir()):
                         shutil.rmtree(path.parent.parent)
                     print(f"removed {path.parent}") 

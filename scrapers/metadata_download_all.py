@@ -82,7 +82,7 @@ def sanitize_filename(filename):
 
 def save_metadata(metadata):
     os.makedirs(OUTPUT_DIR, exist_ok=True)
-    dirname = f"{metadata['ref']}"
+    dirname = f"{metadata['kaggleRef']}"
     dirpath = os.path.join(OUTPUT_DIR, dirname)
     os.makedirs(dirpath, exist_ok=True)
     with open(os.path.join(dirpath, "metadata.json"), "w") as json_file:
@@ -92,7 +92,8 @@ def process_ref(ref: str, progress: tqdm.tqdm):
     global metadata, errors
     result, status = get_croissant_metadata(ref)
     if status == 0:
-        save_metadata({"ref": ref, "jsonld": result})
+        result["kaggleRef"] = ref
+        save_metadata(result)
         metadata += 1
     elif status == -2:
         with open(os.path.join(METAKAGGLE_DIR, "error_datasets.txt"), "a") as file:

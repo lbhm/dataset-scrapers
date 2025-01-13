@@ -166,4 +166,5 @@ cython_debug/
 kaggle_metadata/
 data/
 croissant/
+croissant.zip
 mongodb/
