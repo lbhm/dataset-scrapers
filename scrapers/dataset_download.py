@@ -94,8 +94,7 @@ def main():
     global downloaded_size
     count_total()
     with tqdm.tqdm(total=total_size, desc="downloading datasets") as progress:
-        for path in Path(METADATA_DIR).rglob("*"):
-            if path.is_file() and str(path).endswith("metadata.json"):
+        for path in Path(METADATA_DIR).rglob("metadata.json"):
                 # filter datasets by conditions
                 if conditions_fullfilled(path):
                     download_dataset(path.parent)
