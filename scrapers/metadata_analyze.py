@@ -1,11 +1,16 @@
+from ast import arg
+from genericpath import exists
 from pathlib import Path
 import json
 import matplotlib.pyplot as plt
 import os
+import argparse
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
-METADATA_DIR = "../kaggle_metadata" 
+METADATA_DIR = "../kaggle_metadata"
+OUTPUT_DIR = "../plots"
+os.makedirs(OUTPUT_DIR, exist_ok=True) 
 
 analyzed = 0 # datasets analyzed in total
 record_count = 0 # datasets with recordset
@@ -91,7 +96,8 @@ def plot_csv_file_count(max_files = 100):
     plt.hist(csv_file_count, bins=500, color='blue', edgecolor='black', alpha=0.7)
     plt.xlabel("CSV files in a dataset")
     plt.ylabel("frequency")
-    plt.title(f"CSV file count distribution ({round(tabular/total * 100, 2)}% > 0)")   
+    plt.title(f"CSV file count distribution ({round(tabular/total * 100, 2)}% > 0)")
+    plt.savefig(os.path.join(OUTPUT_DIR, "csv_file_count.png"))   
     
 def plot_file_sizes(max_size = 100000):
     global file_sizes
@@ -103,6 +109,7 @@ def plot_file_sizes(max_size = 100000):
     plt.xlabel("dataset sizes (KB)")
     plt.ylabel("frequency")
     plt.title(f"dataset size distribution of tabular datasets (.zip file). Total: {round(sum_size, 2)} {unit}")
+    plt.savefig(os.path.join(OUTPUT_DIR, "file_sizes.png"))
     
 def plot_column_count(max_columns = 100):
     global column_count
@@ -111,7 +118,8 @@ def plot_column_count(max_columns = 100):
     plt.hist(column_count, bins=500, color='yellow', edgecolor='black', alpha=0.7)
     plt.xlabel("columns of tabular files")
     plt.ylabel("frequency")
-    plt.title(f"column count distribution of datasets with recordset key")   
+    plt.title(f"column count distribution of datasets with recordset key") 
+    plt.savefig(os.path.join(OUTPUT_DIR, "column_count.png"))  
     
 def plot_file_types():
     plt.figure("file types of tabular datasets")
@@ -120,9 +128,21 @@ def plot_file_types():
     plt.grid(axis="y")
     plt.xlabel("file types of tabular files")
     plt.ylabel("frequency")
-    plt.title(f"file type distribution of datasets with recordset key ({round(record_count / analyzed * 100, 2)}%)")   
+    plt.title(f"file type distribution of datasets with recordset key ({round(record_count / analyzed * 100, 2)}%)")
+    plt.savefig(os.path.join(OUTPUT_DIR, "file_types.png")) 
 
 def main():
+    global METADATA_DIR
+    parser = argparse.ArgumentParser(description="analyze kaggle metadata")
+    parser.add_argument("path", type=str, help="path to metadata")
+    args = parser.parse_args()
+    kaggle_path = args.path
+
+    if os.path.exists(kaggle_path):
+        METADATA_DIR = kaggle_path
+    else:
+        print(f"Warning: Path does not exist. Using ../kaggle_metadata instead...")
+
     for path in Path(METADATA_DIR).rglob("*"):
         if path.is_file() and str(path).endswith("metadata.json"):
             analyze_metadata(path)
