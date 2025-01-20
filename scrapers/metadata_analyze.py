@@ -1,5 +1,3 @@
-from ast import arg
-from genericpath import exists
 from pathlib import Path
 import json
 import matplotlib.pyplot as plt
@@ -143,9 +141,11 @@ def main():
     else:
         print(f"Warning: Path does not exist. Using ../kaggle_metadata instead...")
 
-    for path in Path(METADATA_DIR).rglob("*"):
-        if path.is_file() and str(path).endswith("metadata.json"):
-            analyze_metadata(path)
+    for path in Path(METADATA_DIR).rglob("metadata.json"):
+            try:
+                analyze_metadata(path)
+            except Exception as e:
+                print(f"Error occurred with {path}: {e}") 
     
     plot_csv_file_count()
     plot_file_sizes()
