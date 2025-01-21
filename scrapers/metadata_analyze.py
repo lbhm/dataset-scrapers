@@ -13,6 +13,7 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 analyzed = 0 # datasets analyzed in total
 record_count = 0 # datasets with recordset
+metadata_total_size_wrecordset = 0
 
 file_types_count = {} # file type : frequency
 file_sizes = []
@@ -46,7 +47,7 @@ def convert_to_highest(value: float) -> tuple[float, str]:
             return value / multiplier, name
 
 def analyze_metadata(path: Path):
-    global analyzed, record_count
+    global analyzed, record_count, metadata_total_size_wrecordset
     # get metadata file from path
     with path.open("r", encoding="utf-8") as file:
         data = json.load(file)
@@ -73,6 +74,8 @@ def analyze_metadata(path: Path):
     # analyze recordSet if given
     if "recordSet" not in data:
         return
+    
+    metadata_total_size_wrecordset += os.path.getsize(path) / 1024
 
     records = data["recordSet"]
     record_count += 1
@@ -165,6 +168,8 @@ def main():
     plot_file_sizes()
     plot_column_count()
     plot_file_types()
+    value, unit = convert_to_highest(metadata_total_size_wrecordset)
+    print(f"Total size of metadata with recordset key: {round(value, 2)} {unit}")
 
     plt.show()
     
