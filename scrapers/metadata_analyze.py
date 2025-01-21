@@ -1,3 +1,4 @@
+from itertools import count
 from pathlib import Path
 import json
 import matplotlib.pyplot as plt
@@ -100,14 +101,18 @@ def plot_csv_file_count(max_files = 100):
 def plot_file_sizes(max_size = 100000):
     global file_sizes
     sum_size, unit = convert_to_highest(sum(file_sizes))
-    print(f"outliers file sizes: {len([count for count in file_sizes if count > max_size])}")
+    # use filter to remove outliers
     file_sizes = [count for count in file_sizes if count < max_size]
+    filter_sum_size, filter_unit = convert_to_highest(sum(file_sizes))
+
+    max_size_highest, max_size_unit_highest = convert_to_highest(max_size)
     plt.figure(f"sizes of tabular datasets until {max_size} KB")
     plt.hist(file_sizes, bins=500, color='red', edgecolor='black', alpha=0.7)
     plt.xlabel("dataset sizes (KB)")
     plt.ylabel("frequency")
     plt.title(f"dataset size distribution of tabular datasets (.zip file). Total: {round(sum_size, 2)} {unit}")
     plt.savefig(os.path.join(OUTPUT_DIR, "file_sizes.png"))
+    print(f"Total size: {round(sum_size, 2)} {unit}. Filtered size (<{round(max_size_highest, 2)} {max_size_unit_highest}): {round(filter_sum_size, 2)} {filter_unit}")
     
 def plot_column_count(max_columns = 100):
     global column_count
@@ -128,11 +133,20 @@ def plot_file_types():
     plt.ylabel("frequency")
     plt.title(f"file type distribution of datasets with recordset key ({round(record_count / analyzed * 100, 2)}%)")
     plt.savefig(os.path.join(OUTPUT_DIR, "file_types.png")) 
+    print(f"Analyzed {analyzed} datasets. {record_count} datasets with recordset key.")
+    total_columns = 0
+    numeric_columns = 0
+    for type, count in file_types_count.items():
+        total_columns += count
+        if type == "Integer" or type == "Float":
+            numeric_columns += count
+    print(f"Total columns: {total_columns}. Numeric columns: {numeric_columns}")
+
 
 def main():
     global METADATA_DIR
     parser = argparse.ArgumentParser(description="analyze kaggle metadata")
-    parser.add_argument("path", type=str, help="path to metadata")
+    parser.add_argument("--path", type=str, help="path to metadata", default=METADATA_DIR)
     args = parser.parse_args()
     kaggle_path = args.path
 
