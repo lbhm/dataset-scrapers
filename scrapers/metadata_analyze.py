@@ -107,6 +107,7 @@ def plot_file_sizes(max_size = 100000):
     # use filter to remove outliers
     file_sizes = [count for count in file_sizes if count < max_size]
     filter_sum_size, filter_unit = convert_to_highest(sum(file_sizes))
+    filter_len = len(file_sizes)
 
     max_size_highest, max_size_unit_highest = convert_to_highest(max_size)
     plt.figure(f"sizes of tabular datasets until {max_size} KB")
@@ -115,7 +116,7 @@ def plot_file_sizes(max_size = 100000):
     plt.ylabel("frequency")
     plt.title(f"dataset size distribution of tabular datasets (.zip file). Total: {round(sum_size, 2)} {unit}")
     plt.savefig(os.path.join(OUTPUT_DIR, "file_sizes.png"))
-    print(f"Total size: {round(sum_size, 2)} {unit}. Filtered size (<{round(max_size_highest, 2)} {max_size_unit_highest}): {round(filter_sum_size, 2)} {filter_unit}")
+    print(f"Total size: {round(sum_size, 2)} {unit}. Filtered size (<{round(max_size_highest, 2)} {max_size_unit_highest}): {round(filter_sum_size, 2)} {filter_unit} ({filter_len} datasets)")
     
 def plot_column_count(max_columns = 100):
     global column_count
