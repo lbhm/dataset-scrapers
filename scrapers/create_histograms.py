@@ -21,6 +21,9 @@ def detect_separator(csv_file: str, encoding: str) -> str:
         
 
 def process_dataset(path: str, bin_count: int):
+    # check if dataset is empty
+    if len(os.listdir(path)) <= 1:
+        return
     # get metadata
     metadata_path = os.path.join(path, "metadata.json")
     with open(metadata_path, "r", encoding="utf-8") as file:
@@ -38,15 +41,15 @@ def process_dataset(path: str, bin_count: int):
         df = pd.read_csv(csv_file, encoding=encoding, sep=delimiter, low_memory=False)
         # remove unnecessary spaces
         df.columns = df.columns.str.strip()
-        for column in file["field"]:
+        for n, column in enumerate(file["field"]):
             data_type = column["dataType"][0].rsplit(":", 1)[-1]
-            # take only numerical columns
+            column_name = column["name"]
+            # catch case where column has empty name
+            if column_name == "":
+                column_name = f"Unnamed: {n}"
+            data = list(df[column_name].dropna())
+            # case for numeric columns
             if data_type == "Integer" or data_type == "Float":
-                column_name = column["name"]
-                # catch case where column has empty name
-                if column_name == "":
-                    column_name = "Unnamed: 0"
-                data = list(df[column_name].dropna())
                 if isinstance(data[0], str):
                     try:
                         # catch case where 1923423 = "1,923,423"
@@ -60,6 +63,14 @@ def process_dataset(path: str, bin_count: int):
                 densities, bins = np.histogram(data, density=True, bins=bin_count)
                 # save hist
                 column["histogram"] = {"bins": list(bins), "densities": list(densities / np.sum(densities))}
+                column["statistics"] = df[column_name].dropna().describe().to_dict()
+            # case for text columns
+            elif data_type == "Text":
+                n_unique = len(set(data))
+                top_10 = dict(Counter(data).most_common(10))
+                column["n_unique"] = n_unique
+                column["most_common"] = top_10
+
     # write metadata in RESULT_DIR
     ref = "/".join(path.split("/")[2:]).replace("/", "_")
     with open(os.path.join(RESULT_DIR, ref + ".json"), "w") as f:

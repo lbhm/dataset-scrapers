@@ -13,7 +13,6 @@ api.authenticate()
 METADATA_DIR = "../kaggle_metadata" 
 
 total_size = 0
-downloaded_size = 0
 
 unit_multipliers = {
         "B": 1/(1024**2),
@@ -30,7 +29,7 @@ def convert_to_mb(string: str) -> float:
         quit()
     return float(parts[0]) * unit_multipliers[parts[1]]
 
-def conditions_fullfilled(path: Path) -> bool:
+def conditions_fullfilled(path: Path) -> tuple[bool, float | None]:
     with path.open("r", encoding="utf-8") as file:
         data = json.load(file)  
 
@@ -40,15 +39,16 @@ def conditions_fullfilled(path: Path) -> bool:
         if "contentSize" in item:
             size = item["contentSize"]  
             break
+    size = convert_to_mb(size)
     
     # dataset too big (probably because of images)
-    if convert_to_mb(size) > 100:
-        return False
+    if size > 100:
+        return False, None
     # dataset has no recordSet
     if "recordSet" not in data:
-        return False
+        return False, None
     
-    return True
+    return True, size
 
 def download_dataset(path: Path):
     download_dir = str(path)
@@ -86,28 +86,29 @@ def flatten_csv_folders(base_dir: Path):
         
 def count_total():
     global total_size
-    for path in Path(METADATA_DIR).rglob("*"):
-        if path.is_file() and str(path).endswith("metadata.json"):
-            total_size += 1   
+    for _ in Path(METADATA_DIR).rglob("metadata.json"):
+        total_size += 1   
 
 def main():
-    global downloaded_size
     count_total()
-    with tqdm.tqdm(total=total_size, desc="downloading datasets") as progress:
-        for path in Path(METADATA_DIR).rglob("metadata.json"):
-                # filter datasets by conditions
-                if conditions_fullfilled(path):
-                    download_dataset(path.parent)
-                    flatten_csv_folders(path.parent)
-                    downloaded_size += 1
-                else:
-                    shutil.rmtree(path.parent)
-                    # delete empty directories
-                    if not any(path.parent.parent.iterdir()):
-                        shutil.rmtree(path.parent.parent)
-                    print(f"removed {path.parent}") 
-                progress.update(1) 
+    download_list : list[tuple[Path, int]] = []
+    # create list of datasets to download
+    for path in Path(METADATA_DIR).rglob("metadata.json"):
+        # filter datasets by conditions
+        fulfilled, size = conditions_fullfilled(path)
+        if fulfilled:
+            download_list.append((path, size))
 
+    # sort by size 
+    download_list = sorted(download_list, key=lambda x: x[1])
+    downloaded_size = len(download_list)
+    # download datasets
+    with tqdm.tqdm(total=downloaded_size, desc="downloading datasets") as progress:
+        for path, size in download_list:
+            download_dataset(path.parent)
+            flatten_csv_folders(path.parent)
+            progress.update(1)
+    
     print(f"{downloaded_size} datasets downloaded ({round(downloaded_size / total_size * 100, 2)}%).")
 
 if __name__ == "__main__":
