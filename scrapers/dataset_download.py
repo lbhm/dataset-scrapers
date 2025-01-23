@@ -48,7 +48,7 @@ def conditions_fullfilled(path: Path) -> tuple[bool, float | None]:
 
 def download_dataset(path: Path):
     download_dir = str(path)
-    ref = "/".join(download_dir.split("/")[2:])
+    ref = "/".join(download_dir.split("/")[-2:])
     api.dataset_download_files(ref, path=download_dir, unzip=True)
     
 def exists(target_path: Path, base_dir: Path) -> bool:
@@ -79,8 +79,10 @@ def flatten_csv_folders(base_dir: Path):
 def main():
     parser = argparse.ArgumentParser(description="download kaggle datasets")
     parser.add_argument("--path", type=str, help="path to metadata", default="../kaggle_metadata")
+    parser.add_argument("--index", type=int, help="start index to continue downloading", default=0)
     args = parser.parse_args()
     METADATA_DIR = Path(args.path)
+    start_index = args.index
 
     total_size = 0
     download_list : list[tuple[Path, int]] = []
@@ -98,7 +100,13 @@ def main():
     # download datasets
     with tqdm.tqdm(total=downloaded_size, desc="downloading datasets") as progress:
         for path, size in download_list:
-            download_dataset(path.parent)
+            if progress.n < start_index:
+                progress.update(1)
+                continue
+            try:
+                download_dataset(path.parent)
+            except Exception as e:
+                print(f"Exception occurred with {path}: {e}") 
             flatten_csv_folders(path.parent)
             progress.update(1)
     
