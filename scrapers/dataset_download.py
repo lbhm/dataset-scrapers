@@ -3,13 +3,12 @@ from kaggle.api.kaggle_api_extended import KaggleApi
 import os
 import tqdm
 import json
+import argparse
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 api = KaggleApi()
 api.authenticate()
-
-METADATA_DIR = Path("../kaggle_metadata") 
 
 unit_multipliers = {
         "B": 1/(1024**2),
@@ -78,6 +77,11 @@ def flatten_csv_folders(base_dir: Path):
             folder.rmdir()
         
 def main():
+    parser = argparse.ArgumentParser(description="download kaggle datasets")
+    parser.add_argument("--path", type=str, help="path to metadata", default="../kaggle_metadata")
+    args = parser.parse_args()
+    METADATA_DIR = Path(args.path)
+
     total_size = 0
     download_list : list[tuple[Path, int]] = []
     # create list of datasets to download

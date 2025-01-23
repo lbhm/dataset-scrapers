@@ -6,11 +6,12 @@ import cchardet
 import tqdm
 from collections import Counter
 from pathlib import Path
+import argparse
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
-SOURCE_DIR = Path("../kaggle_metadata")
 RESULT_DIR = Path("../croissant")
+SOURCE_DIR = None
 
 def detect_separator(csv_file: str, encoding: str) -> str:
     possible_separators = [",", ";", "\t", "|"]
@@ -87,6 +88,11 @@ def create_histograms(bin_count: int = 10):
             progress.update(1)
         
 def main():
+    global SOURCE_DIR
+    parser = argparse.ArgumentParser(description="create histograms for kaggle datasets")
+    parser.add_argument("--path", type=str, help="path to metadata", default="../kaggle_metadata")
+    args = parser.parse_args()
+    SOURCE_DIR = Path(args.path)
     RESULT_DIR.mkdir(exist_ok=True)
     create_histograms()
     print("Done!")
