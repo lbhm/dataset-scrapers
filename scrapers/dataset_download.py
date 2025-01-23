@@ -54,23 +54,21 @@ def download_dataset(path: Path):
     
 def exists(target_path: Path, base_dir: Path) -> bool:
     for path in base_dir.rglob("*.csv"):
-        if path.is_file():
-            if target_path != path and target_path.name == path.name:
-                return True
+        if target_path != path and target_path.name == path.name:
+            return True
     return False
     
 def flatten_csv_folders(base_dir: Path):
     rename_list: list[tuple[Path, Path]] = []
     for path in base_dir.rglob("*.csv"):
-        if path.is_file():
-            target_path = base_dir / path.name
-            # skip if it is already flat
-            if target_path == path:
-                continue
-            # resolve path conflicts
-            if exists(path, base_dir):
-                target_path = base_dir / f"{path.parent.name}_{path.name}"
-            rename_list.append((path, target_path))
+        target_path = base_dir / path.name
+        # skip if it is already flat
+        if target_path == path:
+            continue
+        # resolve path conflicts
+        if exists(path, base_dir):
+            target_path = base_dir / str(path.relative_to(base_dir)).replace("/", "_")
+        rename_list.append((path, target_path))
     # rename afterwards to avoid problems
     for src, target in rename_list:
         src.rename(target)
