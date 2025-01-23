@@ -5,12 +5,12 @@ import numpy as np
 import cchardet
 import tqdm
 from collections import Counter
+from pathlib import Path
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
-SOURCE_DIR = "../kaggle_metadata"
-RESULT_DIR = "../croissant"
-total_count = 0
+SOURCE_DIR = Path("../kaggle_metadata")
+RESULT_DIR = Path("../croissant")
 
 def detect_separator(csv_file: str, encoding: str) -> str:
     possible_separators = [",", ";", "\t", "|"]
@@ -20,18 +20,15 @@ def detect_separator(csv_file: str, encoding: str) -> str:
     return max(counts, key=counts.get) if counts else ","
         
 
-def process_dataset(path: str, bin_count: int):
-    # check if dataset is empty
-    if len(os.listdir(path)) <= 1:
-        return
+def process_dataset(path: Path, bin_count: int):
     # get metadata
-    metadata_path = os.path.join(path, "metadata.json")
+    metadata_path = path / "metadata.json"
     with open(metadata_path, "r", encoding="utf-8") as file:
         metadata = json.load(file)   
     records = metadata["recordSet"]
     
     for file in records:
-        csv_file = os.path.join(path, file["@id"].replace("+", " ").replace("/", "_"))
+        csv_file = path / file["@id"].replace("+", " ").replace("/", "_")
         # guess appropiate encoding
         with open(csv_file, "rb") as f:
             result = cchardet.detect(f.read())
@@ -72,37 +69,25 @@ def process_dataset(path: str, bin_count: int):
                 column["most_common"] = top_10
 
     # write metadata in RESULT_DIR
-    ref = "/".join(path.split("/")[2:]).replace("/", "_")
-    with open(os.path.join(RESULT_DIR, ref + ".json"), "w") as f:
+    ref = "/".join(str(path).split("/")[2:]).replace("/", "_")
+    with open(RESULT_DIR / (ref + ".json"), "w") as f:
         json.dump(metadata, f, indent=4, ensure_ascii=False)
 
-def count_total():
-    global total_count
-    for user_folder in os.listdir(SOURCE_DIR):
-        user_path = os.path.join(SOURCE_DIR, user_folder)
-        if os.path.isdir(user_path):
-            for dataset_folder in os.listdir(user_path):
-                dataset_path = os.path.join(user_path, dataset_folder)
-                if os.path.isdir(dataset_path):
-                    total_count += 1                   
-                        
 def create_histograms(bin_count: int = 10):
-    with tqdm.tqdm(total=total_count, desc="processing datasets") as progress:
-        for user_folder in os.listdir(SOURCE_DIR):
-            user_path = os.path.join(SOURCE_DIR, user_folder)
-            if os.path.isdir(user_path):
-                for dataset_folder in os.listdir(user_path):
-                    dataset_path = os.path.join(user_path, dataset_folder)
-                    if os.path.isdir(dataset_path):
-                        try:
-                            process_dataset(dataset_path, bin_count)
-                        except Exception as e:
-                            print(f"Error occurred with {dataset_path}: {e}")
-                        progress.update(1)
-
+    process_list : list[Path] = []
+    for path in SOURCE_DIR.rglob("metadata.json"):
+        if len(list(path.parent.iterdir())) > 1:
+            process_list.append(path.parent)
+    with tqdm.tqdm(total=len(process_list), desc="processing datasets") as progress:
+        for dataset_path in process_list:
+            try:
+                process_dataset(dataset_path, bin_count)
+            except Exception as e:
+                print(f"Error occurred with {dataset_path}: {e}")
+            progress.update(1)
+        
 def main():
-    os.makedirs(RESULT_DIR, exist_ok=True)
-    count_total()
+    RESULT_DIR.mkdir(exist_ok=True)
     create_histograms()
     print("Done!")
 

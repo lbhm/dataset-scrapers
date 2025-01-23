@@ -3,16 +3,13 @@ from kaggle.api.kaggle_api_extended import KaggleApi
 import os
 import tqdm
 import json
-import shutil
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 api = KaggleApi()
 api.authenticate()
 
-METADATA_DIR = "../kaggle_metadata" 
-
-total_size = 0
+METADATA_DIR = Path("../kaggle_metadata") 
 
 unit_multipliers = {
         "B": 1/(1024**2),
@@ -63,8 +60,6 @@ def exists(target_path: Path, base_dir: Path) -> bool:
     return False
     
 def flatten_csv_folders(base_dir: Path):
-    if str(base_dir).startswith(METADATA_DIR + "/jeypimendoza"):
-        pass
     rename_list: list[tuple[Path, Path]] = []
     for path in base_dir.rglob("*.csv"):
         if path.is_file():
@@ -84,16 +79,12 @@ def flatten_csv_folders(base_dir: Path):
         if folder.is_dir() and not any(folder.iterdir()):
             folder.rmdir()
         
-def count_total():
-    global total_size
-    for _ in Path(METADATA_DIR).rglob("metadata.json"):
-        total_size += 1   
-
 def main():
-    count_total()
+    total_size = 0
     download_list : list[tuple[Path, int]] = []
     # create list of datasets to download
-    for path in Path(METADATA_DIR).rglob("metadata.json"):
+    for path in METADATA_DIR.rglob("metadata.json"):
+        total_size += 1
         # filter datasets by conditions
         fulfilled, size = conditions_fullfilled(path)
         if fulfilled:

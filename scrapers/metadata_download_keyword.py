@@ -7,6 +7,7 @@ import time
 from kaggle.api.kaggle_api_extended import KaggleApi
 from TaskQueue import TaskQueue
 import sys
+from pathlib import Path
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
@@ -16,8 +17,8 @@ api.authenticate()
 
 MAX_WORKERS = 1
 MAX_PAGES = 100
-OUTPUT_DIR = "../kaggle_metadata"   
-METAKAGGLE_DIR = "../data"
+OUTPUT_DIR = Path("../kaggle_metadata")   
+METAKAGGLE_DIR = Path("../data")
 
 refs = [] 
 total_size = 0
@@ -58,11 +59,10 @@ def sanitize_filename(filename):
     return re.sub(r'[<>:"/\\|?*]', '_', filename)
 
 def save_metadata(metadata):
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
     dirname = f"{metadata['kaggleRef']}"
-    dirpath = os.path.join(OUTPUT_DIR, dirname)
-    os.makedirs(dirpath, exist_ok=True)
-    with open(os.path.join(dirpath, "metadata.json"), "w") as json_file:
+    dirpath = OUTPUT_DIR / dirname
+    dirpath.mkdir(parents=True, exist_ok=True)
+    with open(dirpath / "metadata.json", "w") as json_file:
         json.dump(metadata, json_file, indent=4)
 
 def process_ref(ref: str, progress: tqdm.tqdm):
@@ -73,8 +73,8 @@ def process_ref(ref: str, progress: tqdm.tqdm):
         save_metadata(result)
         metadata += 1
     elif status == -2:
-        os.makedirs(METAKAGGLE_DIR, exist_ok=True)
-        with open(os.path.join(METAKAGGLE_DIR, "error_datasets.txt"), "a") as file:
+        METAKAGGLE_DIR.mkdir(exist_ok=True)
+        with open(METAKAGGLE_DIR / "error_datasets.txt", "a") as file:
             file.write(f"{ref},{result}\n") 
         errors += 1
     else:
