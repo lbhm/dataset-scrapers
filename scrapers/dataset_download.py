@@ -1,3 +1,4 @@
+from genericpath import isfile
 from pathlib import Path
 from kaggle.api.kaggle_api_extended import KaggleApi
 import os
@@ -60,6 +61,8 @@ def exists(target_path: Path, base_dir: Path) -> bool:
 def flatten_csv_folders(base_dir: Path):
     rename_list: list[tuple[Path, Path]] = []
     for path in base_dir.rglob("*.csv"):
+        if not path.is_file():
+            continue
         target_path = base_dir / path.name
         # skip if it is already flat
         if target_path == path:
@@ -90,7 +93,11 @@ def main():
     for path in METADATA_DIR.rglob("metadata.json"):
         total_size += 1
         # filter datasets by conditions
-        fulfilled, size = conditions_fullfilled(path)
+        try: 
+            fulfilled, size = conditions_fullfilled(path)
+        except Exception as e:
+            print(f"Exception occurred with {path}: {e}")
+            exit()
         if fulfilled:
             download_list.append((path, size))
 
