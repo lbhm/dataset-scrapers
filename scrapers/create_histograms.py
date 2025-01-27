@@ -13,6 +13,8 @@ os.chdir(os.path.dirname(os.path.abspath(__file__)))
 RESULT_DIR = Path("../croissant")
 SOURCE_DIR = None
 
+error_count = 0
+
 def detect_separator(csv_file: str, encoding: str) -> str:
     possible_separators = [",", ";", "\t", "|"]
     with open(csv_file, "r", encoding=encoding) as f:
@@ -36,7 +38,7 @@ def process_dataset(path: Path, bin_count: int):
             encoding = result["encoding"]
         # try to find correct separator
         delimiter = detect_separator(csv_file, encoding)
-        df = pd.read_csv(csv_file, encoding=encoding, sep=delimiter, low_memory=False)
+        df = pd.read_csv(csv_file, encoding=encoding, sep=delimiter, engine="python", on_bad_lines="skip")
         # remove unnecessary spaces
         df.columns = df.columns.str.strip()
         for n, column in enumerate(file["field"]):
@@ -70,11 +72,12 @@ def process_dataset(path: Path, bin_count: int):
                 column["most_common"] = top_10
 
     # write metadata in RESULT_DIR
-    ref = "/".join(str(path).split("/")[2:]).replace("/", "_")
+    ref = "/".join(str(path).split("/")[-2:]).replace("/", "_")
     with open(RESULT_DIR / (ref + ".json"), "w") as f:
         json.dump(metadata, f, indent=4, ensure_ascii=False)
 
 def create_histograms(max_datasets: int, bin_count: int = 10):
+    global error_count
     process_list : list[Path] = []
     for path in SOURCE_DIR.rglob("croissant_metadata.json"):
         if len(list(path.parent.iterdir())) > 1:
@@ -86,7 +89,9 @@ def create_histograms(max_datasets: int, bin_count: int = 10):
                 process_dataset(dataset_path, bin_count)
             except Exception as e:
                 print(f"Error occurred with {dataset_path}: {e}")
+                error_count += 1
             progress.update(1)
+    print(f"{len(process_list) - error_count} of {len(process_list)} datasets processed ({round((len(process_list) - error_count)/len(process_list) * 100)}%)")
         
 def main():
     global SOURCE_DIR
