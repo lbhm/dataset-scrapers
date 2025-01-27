@@ -107,8 +107,12 @@ def main():
     # download datasets
     with tqdm.tqdm(total=downloaded_size, desc="downloading datasets") as progress:
         for path, size in download_list:
+            # skip datasets before start_index
             if progress.n < start_index:
                 progress.update(1)
+                continue
+            # check if dataset already downloaded
+            if len(list(path.parent.iterdir())) > 1:
                 continue
             try:
                 download_dataset(path.parent)
