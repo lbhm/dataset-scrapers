@@ -4,17 +4,11 @@ import json
 METADATA_DIR = Path("/local-ssd/lennart/data-collections/kaggle/kaggle_metadata")
 
 def change_format(path: Path):
-    with path.open("r", encoding="utf-8") as file:
-        data = json.load(file)
-
-    if "ref" not in data:
+    dirpath = path.parent
+    new_path = dirpath / "croissant_metadata.json"
+    if (new_path).exists():
         return
-    
-    ref = data["ref"]
-    data = data["jsonld"]
-    data["kaggleRef"] = ref
-    with path.open("w") as f:
-        json.dump(data, f, indent=4, ensure_ascii=False)
+    path.rename(new_path)
 
 
 

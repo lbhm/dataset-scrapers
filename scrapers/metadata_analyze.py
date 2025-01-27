@@ -159,7 +159,7 @@ def main():
     else:
         print(f"Warning: Path does not exist. Using ../kaggle_metadata instead...")
 
-    for path in Path(METADATA_DIR).rglob("metadata.json"):
+    for path in Path(METADATA_DIR).rglob("croissant_metadata.json"):
             try:
                 analyze_metadata(path)
             except Exception as e:

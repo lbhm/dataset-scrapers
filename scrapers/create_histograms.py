@@ -23,7 +23,7 @@ def detect_separator(csv_file: str, encoding: str) -> str:
 
 def process_dataset(path: Path, bin_count: int):
     # get metadata
-    metadata_path = path / "metadata.json"
+    metadata_path = path / "croissant_metadata.json"
     with open(metadata_path, "r", encoding="utf-8") as file:
         metadata = json.load(file)   
     records = metadata["recordSet"]
@@ -76,7 +76,7 @@ def process_dataset(path: Path, bin_count: int):
 
 def create_histograms(bin_count: int = 10):
     process_list : list[Path] = []
-    for path in SOURCE_DIR.rglob("metadata.json"):
+    for path in SOURCE_DIR.rglob("croissant_metadata.json"):
         if len(list(path.parent.iterdir())) > 1:
             process_list.append(path.parent)
     with tqdm.tqdm(total=len(process_list), desc="processing datasets") as progress:

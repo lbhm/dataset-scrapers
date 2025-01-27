@@ -62,7 +62,7 @@ def save_metadata(metadata):
     dirname = f"{metadata['kaggleRef']}"
     dirpath = OUTPUT_DIR / dirname
     dirpath.mkdir(parents=True, exist_ok=True)
-    with open(dirpath / "metadata.json", "w") as json_file:
+    with open(dirpath / "croissant_metadata.json", "w") as json_file:
         json.dump(metadata, json_file, indent=4)
 
 def process_ref(ref: str, progress: tqdm.tqdm):

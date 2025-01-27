@@ -90,7 +90,7 @@ def main():
     total_size = 0
     download_list : list[tuple[Path, int]] = []
     # create list of datasets to download
-    for path in METADATA_DIR.rglob("metadata.json"):
+    for path in METADATA_DIR.rglob("croissant_metadata.json"):
         total_size += 1
         # filter datasets by conditions
         try: 
