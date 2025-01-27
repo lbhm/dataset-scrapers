@@ -74,11 +74,12 @@ def process_dataset(path: Path, bin_count: int):
     with open(RESULT_DIR / (ref + ".json"), "w") as f:
         json.dump(metadata, f, indent=4, ensure_ascii=False)
 
-def create_histograms(bin_count: int = 10):
+def create_histograms(max_datasets: int, bin_count: int = 10):
     process_list : list[Path] = []
     for path in SOURCE_DIR.rglob("croissant_metadata.json"):
         if len(list(path.parent.iterdir())) > 1:
             process_list.append(path.parent)
+    process_list = process_list[:min(max_datasets, len(process_list))]
     with tqdm.tqdm(total=len(process_list), desc="processing datasets") as progress:
         for dataset_path in process_list:
             try:
@@ -91,10 +92,12 @@ def main():
     global SOURCE_DIR
     parser = argparse.ArgumentParser(description="create histograms for kaggle datasets")
     parser.add_argument("--path", type=str, help="path to metadata", default="../kaggle_metadata")
+    parser.add_argument("--count", type=int, help="max count of datasets to be processed", default=10**1000)
     args = parser.parse_args()
     SOURCE_DIR = Path(args.path)
+    max_count = args.count
     RESULT_DIR.mkdir(exist_ok=True)
-    create_histograms()
+    create_histograms(max_count)
     print("Done!")
 
 if __name__ == "__main__":
