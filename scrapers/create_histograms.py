@@ -70,6 +70,22 @@ def process_dataset(path: Path, bin_count: int):
                 top_10 = dict(Counter(data).most_common(10))
                 column["n_unique"] = n_unique
                 column["most_common"] = top_10
+            elif data_type == "Boolean":
+                if isinstance(data[0], str):
+                    data = [d.lower() for d in data]
+                    if data[0] == "true" or data[0] == "false":
+                        data = [d == "true" for d in data]
+                    elif data[0] == "yes" or data[0] == "no":
+                        data = [d == "yes" for d in data]
+                    elif data[0] == "t" or data[0] == "f":
+                        data = [d == "t" for d in data]
+                elif isinstance(data[0], float) or isinstance(data[0], int):
+                    max_value = max(data)
+                    data = [d == max_value for d in data]
+                n_true = sum(data)
+                n_false = len(data) - n_true
+                column["n_true"] = n_true
+                column["n_false"] = n_false
 
     # write metadata in RESULT_DIR
     ref = "/".join(str(path).split("/")[-2:]).replace("/", "_")
