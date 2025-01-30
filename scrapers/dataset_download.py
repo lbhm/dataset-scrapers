@@ -1,4 +1,3 @@
-from genericpath import isfile
 from pathlib import Path
 from kaggle.api.kaggle_api_extended import KaggleApi
 import os
@@ -59,6 +58,14 @@ def exists(target_path: Path, base_dir: Path) -> bool:
     return False
     
 def flatten_csv_folders(base_dir: Path):
+    # remove single subfolder if exists
+    subfiles = [f for f in base_dir.iterdir() if f.name != "croissant_metadata.json"]
+    if len(subfiles) == 1 and subfiles[0].is_dir():
+        subfolder = subfiles[0]
+        for item in subfolder.iterdir():
+            item.rename(base_dir / item.name)
+        subfolder.rmdir()
+
     rename_list: list[tuple[Path, Path]] = []
     for path in base_dir.rglob("*.csv"):
         if not path.is_file():
