@@ -21,7 +21,27 @@ def detect_separator(csv_file: str, encoding: str) -> str:
         sample = f.readline()
         counts = Counter({sep: sample.count(sep) for sep in possible_separators})
     return max(counts, key=counts.get) if counts else ","
-        
+
+def calculate_completeness(metadata) -> float:
+    score = 0
+    max_score = 5
+    if metadata["license"]["name"] != "Unknown":
+        score += 1
+    if metadata["alternateName"] != "":
+        score += 1
+    if metadata["description"] != "":
+        score += 1
+    for file in metadata["distribution"]:
+        if "contentSize" not in file and "description" in file:
+            score += 1
+            break
+    for record in metadata["recordSet"]:
+        for column in record["field"]:
+            if "description" in column:
+                score += 1
+                break
+    return score / max_score
+    
 
 def process_dataset(path: Path, bin_count: int):
     # get metadata
@@ -29,6 +49,9 @@ def process_dataset(path: Path, bin_count: int):
     with open(metadata_path, "r", encoding="utf-8") as file:
         metadata = json.load(file)   
     records = metadata["recordSet"]
+
+    score = calculate_completeness(metadata)
+    metadata["usability"] = score
     
     for file in records:
         csv_file = path / file["@id"].replace("+", " ").replace("/", "_")
