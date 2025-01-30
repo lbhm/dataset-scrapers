@@ -24,12 +24,14 @@ def detect_separator(csv_file: str, encoding: str) -> str:
 
 def calculate_completeness(metadata) -> float:
     score = 0
-    max_score = 5
+    max_score = 6
     if metadata["license"]["name"] != "Unknown":
         score += 1
     if metadata["alternateName"] != "":
         score += 1
     if metadata["description"] != "":
+        score += 1
+    if len(metadata["keywords"]) != 0:
         score += 1
     for file in metadata["distribution"]:
         if "contentSize" not in file and "description" in file:
@@ -40,7 +42,10 @@ def calculate_completeness(metadata) -> float:
             if "description" in column:
                 score += 1
                 break
-    return score / max_score
+        else:
+            continue
+        break
+    return round(score / max_score, 2)
     
 
 def process_dataset(path: Path, bin_count: int):
