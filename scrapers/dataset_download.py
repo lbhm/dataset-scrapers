@@ -4,6 +4,7 @@ import os
 import tqdm
 import json
 import argparse
+import shutil
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
@@ -63,7 +64,10 @@ def flatten_csv_folders(base_dir: Path):
     if len(subfiles) == 1 and subfiles[0].is_dir():
         subfolder = subfiles[0]
         for item in subfolder.iterdir():
-            item.rename(base_dir / item.name)
+            if item.name == subfolder.name:
+                shutil.rmtree(item)
+            else:
+                item.rename(base_dir / item.name)
         subfolder.rmdir()
 
     rename_list: list[tuple[Path, Path]] = []

@@ -8,6 +8,7 @@ from kaggle.api.kaggle_api_extended import KaggleApi
 from TaskQueue import TaskQueue
 import sys
 from pathlib import Path
+import argparse
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
@@ -103,13 +104,13 @@ def finish_prints():
     
 
 def main():
-    if len(sys.argv) < 2:
-        print("No index provided. Setting start index to 0")
-        start_index = 0
-    else:
-        start_index = int(sys.argv[1])
-        print(f"Using {start_index} as start index")
-    search_kaggle_datasets("lung cancer")
+    parser = argparse.ArgumentParser(description="download kaggle metadata using a keyword")
+    parser.add_argument("keyword", type=str, help="the keyword to search for")
+    parser.add_argument("--index", type=int, help="start index to continue downloading", default=0)
+    args = parser.parse_args()
+    start_index = args.index
+    keyword = args.keyword
+    search_kaggle_datasets(keyword)
     collect_metadata(start_index) 
     finish_prints()
     

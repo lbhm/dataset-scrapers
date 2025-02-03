@@ -7,7 +7,7 @@ import time
 from kaggle.api.kaggle_api_extended import KaggleApi
 from TaskQueue import TaskQueue
 import pandas as pd
-import sys
+import argparse
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
@@ -127,13 +127,10 @@ def finish_prints():
     
 
 def main():
-    if len(sys.argv) < 2:
-        print("No index provided. Setting start index to 0")
-        start_index = 0
-    else:
-        start_index = int(sys.argv[1])
-        print(f"Using {start_index} as start index")
-        
+    parser = argparse.ArgumentParser(description="download kaggle metadata using a keyword")
+    parser.add_argument("--index", type=int, help="start index to continue downloading", default=0)
+    args = parser.parse_args()
+    start_index = args.index
     download_meta_kaggle_dataset()
     create_username_slug()
     collect_metadata(start_index)
