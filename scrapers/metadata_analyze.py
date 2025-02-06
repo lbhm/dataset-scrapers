@@ -1,4 +1,3 @@
-from itertools import count
 from pathlib import Path
 import json
 import matplotlib.pyplot as plt
