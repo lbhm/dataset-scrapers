@@ -7,9 +7,8 @@ import argparse
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
-METADATA_DIR = "../kaggle_metadata"
-OUTPUT_DIR = "../plots"
-os.makedirs(OUTPUT_DIR, exist_ok=True) 
+OUTPUT_DIR = Path("../plots")
+OUTPUT_DIR.mkdir(exist_ok=True, parents=True)
 
 analyzed = 0 # datasets analyzed in total
 record_count = 0 # datasets with recordset
@@ -99,7 +98,7 @@ def plot_csv_file_count(max_files = 100):
     plt.xlabel("CSV files in a dataset")
     plt.ylabel("frequency")
     plt.title(f"CSV file count distribution ({round(tabular/total * 100, 2)}% > 0)")
-    plt.savefig(os.path.join(OUTPUT_DIR, "csv_file_count.png"))   
+    plt.savefig(OUTPUT_DIR / "csv_file_count.png") 
     
 def plot_file_sizes(max_size = 100000):
     global file_sizes
@@ -115,7 +114,7 @@ def plot_file_sizes(max_size = 100000):
     plt.xlabel("dataset sizes (KB)")
     plt.ylabel("frequency")
     plt.title(f"dataset size distribution of tabular datasets (.zip file). Total: {round(sum_size, 2)} {unit}")
-    plt.savefig(os.path.join(OUTPUT_DIR, "file_sizes.png"))
+    plt.savefig(OUTPUT_DIR / "file_sizes.png")
     print(f"Total size: {round(sum_size, 2)} {unit}. Filtered size (<{round(max_size_highest, 2)} {max_size_unit_highest}): {round(filter_sum_size, 2)} {filter_unit} ({filter_len} datasets)")
     
 def plot_column_count(max_columns = 100):
@@ -126,7 +125,7 @@ def plot_column_count(max_columns = 100):
     plt.xlabel("columns of tabular files")
     plt.ylabel("frequency")
     plt.title(f"column count distribution of datasets with recordset key") 
-    plt.savefig(os.path.join(OUTPUT_DIR, "column_count.png"))  
+    plt.savefig(OUTPUT_DIR / "column_count.png")
     
 def plot_file_types():
     plt.figure("file types of tabular datasets")
@@ -136,7 +135,7 @@ def plot_file_types():
     plt.xlabel("file types of tabular files")
     plt.ylabel("frequency")
     plt.title(f"file type distribution of datasets with recordset key ({round(record_count / analyzed * 100, 2)}%)")
-    plt.savefig(os.path.join(OUTPUT_DIR, "file_types.png")) 
+    plt.savefig(OUTPUT_DIR / "file_types.png")
     print(f"Analyzed {analyzed} datasets. {record_count} datasets with recordset key.")
     total_columns = 0
     numeric_columns = 0
@@ -148,18 +147,18 @@ def plot_file_types():
 
 
 def main():
-    global METADATA_DIR
     parser = argparse.ArgumentParser(description="analyze kaggle metadata")
-    parser.add_argument("--path", type=str, help="path to metadata", default=METADATA_DIR)
+    parser.add_argument("--path", type=str, help="path to metadata", default="../kaggle_metadata")
     args = parser.parse_args()
     kaggle_path = args.path
 
     if os.path.exists(kaggle_path):
-        METADATA_DIR = kaggle_path
+        METADATA_DIR = Path(kaggle_path)
     else:
         print(f"Warning: Path does not exist. Using ../kaggle_metadata instead...")
+        METADATA_DIR = Path("../kaggle_metadata")
 
-    for path in Path(METADATA_DIR).rglob("croissant_metadata.json"):
+    for path in METADATA_DIR.rglob("croissant_metadata.json"):
             try:
                 analyze_metadata(path)
             except Exception as e:

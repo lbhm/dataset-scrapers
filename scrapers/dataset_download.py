@@ -64,7 +64,8 @@ def flatten_csv_folders(base_dir: Path):
     if len(subfiles) == 1 and subfiles[0].is_dir():
         subfolder = subfiles[0]
         for item in subfolder.iterdir():
-            if item.name == subfolder.name:
+            # remove duplicate subfolder
+            if item.name == subfolder.name and item.is_dir():
                 shutil.rmtree(item)
             else:
                 item.rename(base_dir / item.name)
@@ -97,6 +98,10 @@ def main():
     args = parser.parse_args()
     METADATA_DIR = Path(args.path)
     start_index = args.index
+
+    if not METADATA_DIR.exists():
+        print("This program requires a directory with croissant metadata to work!")
+        return
 
     total_size = 0
     download_list : list[tuple[Path, int]] = []

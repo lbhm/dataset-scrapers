@@ -8,6 +8,7 @@ from kaggle.api.kaggle_api_extended import KaggleApi
 from TaskQueue import TaskQueue
 import pandas as pd
 import argparse
+from pathlib import Path
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
@@ -16,51 +17,74 @@ api = KaggleApi()
 api.authenticate()
 
 MAX_WORKERS = 1
-OUTPUT_DIR = "../kaggle_metadata"   
-METAKAGGLE_DIR = "../data" 
+OUTPUT_DIR = Path("../kaggle_metadata")   
+METAKAGGLE_DIR = Path("../data")
+MAX_PAGES = 100 
 
 metadata = 0
 errors = 0
 
-with open(os.path.join(METAKAGGLE_DIR, "username_slug.txt"), "r") as file:
-    total_size = sum(1 for _ in file)
-
 def download_meta_kaggle_dataset():
     REF = "kaggle/meta-kaggle"
-    os.makedirs(METAKAGGLE_DIR, exist_ok=True)
-    if not os.path.exists(os.path.join(METAKAGGLE_DIR, "Datasets.csv")):
+    METAKAGGLE_DIR.mkdir(exist_ok=True, parents=True)
+    if not (METAKAGGLE_DIR / "Datasets.csv").exists():
         print("Downloading Datasets.csv...")
         api.dataset_download_file(REF, file_name="Datasets.csv", path=METAKAGGLE_DIR)
-    if not os.path.exists(os.path.join(METAKAGGLE_DIR, "DatasetVersions.csv")):
+    if not (METAKAGGLE_DIR / "DatasetVersions.csv").exists():
         print("Downloading DatasetVersions.csv...")
         api.dataset_download_file(REF, file_name="DatasetVersions.csv", path=METAKAGGLE_DIR)
-    if not os.path.exists(os.path.join(METAKAGGLE_DIR, "Users.csv")):
+    if not (METAKAGGLE_DIR / "Users.csv").exists():
         print("Downloading Users.csv...")
         api.dataset_download_file(REF, file_name="Users.csv", path=METAKAGGLE_DIR)
 
 def create_username_slug():
-    if os.path.exists(os.path.join(METAKAGGLE_DIR, "username_slug.txt")):
+    if (METAKAGGLE_DIR / "username_slug.txt").exists():
         return
     print("Creating username_slug.txt...")
-    username_slug = pd.read_csv(os.path.join(METAKAGGLE_DIR, "Datasets.csv"), dtype={"CurrentDatasetVersionId": "Int64", "OwnerUserId": "Int64"})
+    username_slug = pd.read_csv(METAKAGGLE_DIR / "Datasets.csv", dtype={"CurrentDatasetVersionId": "Int64", "OwnerUserId": "Int64"})
     username_slug = username_slug[["Id", "CreatorUserId", "OwnerUserId", "CurrentDatasetVersionId"]]
     username_slug = username_slug.rename(columns={"Id": "DatasetId"})
     
-    dataset_versions = pd.read_csv(os.path.join(METAKAGGLE_DIR, "DatasetVersions.csv"))
+    dataset_versions = pd.read_csv(METAKAGGLE_DIR / "DatasetVersions.csv")
     dataset_versions = dataset_versions[["Id", "CreatorUserId", "VersionNumber", "Slug"]]
     dataset_versions = dataset_versions.rename(columns={"Id": "DatasetVersionId"})
     
-    users = pd.read_csv(os.path.join(METAKAGGLE_DIR, "Users.csv"))
+    users = pd.read_csv(METAKAGGLE_DIR / "Users.csv")
     users = users[["Id", "UserName"]]
     users = users.rename(columns={"Id": "UserId"})
     
     merged = username_slug.merge(dataset_versions, how="left", left_on=["CurrentDatasetVersionId"], right_on=["DatasetVersionId"],).merge(users, how="left", left_on="OwnerUserId", right_on="UserId")
     merged.dropna(subset=["UserName", "Slug"], inplace=True)
     merged = merged[["UserName", "Slug"]]
-    with open(os.path.join(METAKAGGLE_DIR, "username_slug.txt"), "w") as file:
+    with open(METAKAGGLE_DIR / "username_slug.txt", "w") as file:
         for _, row in merged.iterrows():
             file.write(f"{row['UserName']}/{row['Slug']}\n") 
     print("finished!")
+
+def search_kaggle_datasets(keyword: str) -> list[str]:
+    refs = []
+    try:
+        for page in range(1, MAX_PAGES): # MAX_PAGES
+            datasets = api.dataset_list(search=keyword, page=page)
+            refss = [data.ref for data in datasets]
+            if refss == []:
+                break
+            refs.extend(refss)
+        return refs
+    except Exception as e:
+        print("Ein Fehler ist aufgetreten:", e)
+        return refs
+    
+def read_refs_from_file() -> list[str]:
+    refs = []
+    try:
+        with open(METAKAGGLE_DIR / "username_slug.txt", "r") as file:
+            for line in file:
+                refs.append(line.strip())
+        return refs
+    except Exception as e:
+        print("Ein Fehler ist aufgetreten:", e)
+        return refs
 
 def get_croissant_metadata(ref):
     url = "https://www.kaggle.com/datasets/" + ref + "/croissant/download"
@@ -81,11 +105,11 @@ def sanitize_filename(filename):
     return re.sub(r'[<>:"/\\|?*]', '_', filename)
 
 def save_metadata(metadata):
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    OUTPUT_DIR.mkdir(exist_ok=True, parents=True)
     dirname = f"{metadata['kaggleRef']}"
-    dirpath = os.path.join(OUTPUT_DIR, dirname)
+    dirpath = OUTPUT_DIR / dirname
     os.makedirs(dirpath, exist_ok=True)
-    with open(os.path.join(dirpath, "croissant_metadata.json"), "w") as json_file:
+    with open(dirpath / "croissant_metadata.json", "w") as json_file:
         json.dump(metadata, json_file, indent=4)
 
 def process_ref(ref: str, progress: tqdm.tqdm):
@@ -96,7 +120,7 @@ def process_ref(ref: str, progress: tqdm.tqdm):
         save_metadata(result)
         metadata += 1
     elif status == -2:
-        with open(os.path.join(METAKAGGLE_DIR, "error_datasets.txt"), "a") as file:
+        with open(METAKAGGLE_DIR / "error_datasets.txt", "a") as file:
             file.write(f"{ref},{result}\n") 
         errors += 1
     else:
@@ -106,36 +130,41 @@ def process_ref(ref: str, progress: tqdm.tqdm):
     progress.update(1)
     
 
-def collect_metadata(start_index: int):  
-        
+def collect_metadata(start_index: int, total_size: int, refs: list[str]):     
     queue = TaskQueue(MAX_WORKERS)
         
-    with open(os.path.join(METAKAGGLE_DIR, "username_slug.txt"), "r") as file, tqdm.tqdm(total=total_size, desc="Processing datasets") as progress:
-        for line in file:
+    with tqdm.tqdm(total=total_size, desc="Processing datasets") as progress:
+        for ref in refs:
             if progress.n < start_index:
                 progress.update(1)
                 continue
-            ref = line.strip()
             queue.add_task(process_ref, ref=ref, progress=progress)
             time.sleep(0.1)
         queue.join()
-        
-def finish_prints():
+
+def finish_prints(total_size: int):
     print(f"{metadata} metadata collected.")
     print(f"{errors} errors occurred")
     print(f"{round(100 * metadata/total_size, 2)}% downloaded")
     
 
 def main():
-    parser = argparse.ArgumentParser(description="download kaggle metadata using a keyword")
+    parser = argparse.ArgumentParser(description="download kaggle metadata (using a keyword)")
+    parser.add_argument("--keyword", type=str, help="the keyword to search for", default="all")
     parser.add_argument("--index", type=int, help="start index to continue downloading", default=0)
     args = parser.parse_args()
     start_index = args.index
-    download_meta_kaggle_dataset()
-    create_username_slug()
-    collect_metadata(start_index)
-    
-    finish_prints()
+    keyword = args.keyword
+    if keyword == "all":
+        download_meta_kaggle_dataset()
+        create_username_slug()
+        refs = read_refs_from_file()
+    else:
+        refs = search_kaggle_datasets(keyword)
+    total_size = len(refs)
+    collect_metadata(start_index, total_size, refs)
+
+    finish_prints(total_size)
     
 if __name__ == "__main__":
     main()
