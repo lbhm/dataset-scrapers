@@ -59,11 +59,6 @@ def exists(target_path: Path, base_dir: Path) -> bool:
     return False
     
 def flatten_csv_folders(base_dir: Path):
-    # remove idiotic ".csv" endings for directories
-    for path in base_dir.rglob("*.csv"):
-        if path.is_dir():
-            path.rename(path.with_name(path.stem))
-
     # remove single subfolder if exists
     subfiles = [f for f in base_dir.iterdir() if f.name != "croissant_metadata.json"]
     if len(subfiles) == 1 and subfiles[0].is_dir():
@@ -73,7 +68,11 @@ def flatten_csv_folders(base_dir: Path):
             if item.name == subfolder.name and item.is_dir():
                 shutil.rmtree(item)
             else:
-                item.rename(base_dir / item.name)
+                new_path = base_dir / item.name
+                # avoid conflicts if directory has .csv ending
+                if new_path.exists() and new_path.is_dir():
+                    new_path.rename(new_path.with_name(new_path.stem))
+                item.rename(new_path)
         subfolder.rmdir()
 
     rename_list: list[tuple[Path, Path]] = []
