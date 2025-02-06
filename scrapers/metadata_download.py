@@ -23,6 +23,7 @@ MAX_PAGES = 100
 
 metadata = 0
 errors = 0
+total_size = 0
 
 def download_meta_kaggle_dataset():
     REF = "kaggle/meta-kaggle"
@@ -130,7 +131,7 @@ def process_ref(ref: str, progress: tqdm.tqdm):
     progress.update(1)
     
 
-def collect_metadata(start_index: int, total_size: int, refs: list[str]):     
+def collect_metadata(start_index: int, refs: list[str]):     
     queue = TaskQueue(MAX_WORKERS)
         
     with tqdm.tqdm(total=total_size, desc="Processing datasets") as progress:
@@ -142,13 +143,14 @@ def collect_metadata(start_index: int, total_size: int, refs: list[str]):
             time.sleep(0.1)
         queue.join()
 
-def finish_prints(total_size: int):
+def finish_prints():
     print(f"{metadata} metadata collected.")
     print(f"{errors} errors occurred")
     print(f"{round(100 * metadata/total_size, 2)}% downloaded")
     
 
 def main():
+    global total_size
     parser = argparse.ArgumentParser(description="download kaggle metadata (using a keyword)")
     parser.add_argument("--keyword", type=str, help="the keyword to search for", default="all")
     parser.add_argument("--index", type=int, help="start index to continue downloading", default=0)
@@ -162,9 +164,9 @@ def main():
     else:
         refs = search_kaggle_datasets(keyword)
     total_size = len(refs)
-    collect_metadata(start_index, total_size, refs)
+    collect_metadata(start_index, refs)
 
-    finish_prints(total_size)
+    finish_prints()
     
 if __name__ == "__main__":
     main()
