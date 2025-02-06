@@ -1,9 +1,0 @@
-tqdm
-requests
-kaggle
-pandas
-argparse
-matplotlib
-numpy
-cchardet
-

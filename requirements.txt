@@ -1,8 +1,9 @@
-ipykernel~=6.23
-kaggle~=1.5
-numpy~=2.0
-openml~=0.13
-pandas[performance, plot, output_formatting, computation]~=2.0
-pre-commit~=4.0
-pymongo~=4.3
-tqdm~=4.64
+tqdm
+requests
+kaggle
+pandas
+argparse
+matplotlib
+numpy
+cchardet
+
