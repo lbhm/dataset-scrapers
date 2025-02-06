@@ -6,4 +6,5 @@ argparse
 matplotlib
 numpy
 cchardet
+pre-commit
 
