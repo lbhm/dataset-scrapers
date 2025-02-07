@@ -1,26 +1,29 @@
-import os
+import argparse
 import json
-import pandas as pd
-import numpy as np
-import cchardet
-import tqdm
+import os
 from collections import Counter
 from pathlib import Path
-import argparse
+
+import cchardet
+import numpy as np
+import pandas as pd
+import tqdm
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
-RESULT_DIR = Path("../croissant")
+RESULT_DIR = Path("../croissant")  # TODO: fix hardcoded paths
 SOURCE_DIR = None
 
 error_count = 0
 
+
 def detect_separator(csv_file: str, encoding: str) -> str:
     possible_separators = [",", ";", "\t", "|"]
-    with open(csv_file, "r", encoding=encoding) as f:
+    with open(csv_file, encoding=encoding) as f:
         sample = f.readline()
         counts = Counter({sep: sample.count(sep) for sep in possible_separators})
     return max(counts, key=counts.get) if counts else ","
+
 
 def calculate_completeness(metadata) -> float:
     score = 0
@@ -46,18 +49,18 @@ def calculate_completeness(metadata) -> float:
             continue
         break
     return round(score / max_score, 2)
-    
+
 
 def process_dataset(path: Path, bin_count: int):
     # get metadata
     metadata_path = path / "croissant_metadata.json"
-    with open(metadata_path, "r", encoding="utf-8") as file:
-        metadata = json.load(file)   
+    with open(metadata_path, encoding="utf-8") as file:
+        metadata = json.load(file)
     records = metadata["recordSet"]
 
     score = calculate_completeness(metadata)
     metadata["usability"] = score
-    
+
     for file in records:
         csv_file = path / file["@id"].replace("+", " ").replace("/", "_")
         # guess appropiate encoding
@@ -66,7 +69,9 @@ def process_dataset(path: Path, bin_count: int):
             encoding = result["encoding"]
         # try to find correct separator
         delimiter = detect_separator(csv_file, encoding)
-        df = pd.read_csv(csv_file, encoding=encoding, sep=delimiter, engine="python", on_bad_lines="skip")
+        df = pd.read_csv(
+            csv_file, encoding=encoding, sep=delimiter, engine="python", on_bad_lines="skip"
+        )
         # remove unnecessary spaces
         df.columns = df.columns.str.strip()
         for n, column in enumerate(file["field"]):
@@ -90,7 +95,10 @@ def process_dataset(path: Path, bin_count: int):
                 # create histogram
                 densities, bins = np.histogram(data, density=True, bins=bin_count)
                 # save hist
-                column["histogram"] = {"bins": list(bins), "densities": list(densities / np.sum(densities))}
+                column["histogram"] = {
+                    "bins": list(bins),
+                    "densities": list(densities / np.sum(densities)),
+                }
                 column["statistics"] = df[column_name].dropna().describe().to_dict()
             # case for text columns
             elif data_type == "Text":
@@ -120,13 +128,14 @@ def process_dataset(path: Path, bin_count: int):
     with open(RESULT_DIR / (ref + ".json"), "w") as f:
         json.dump(metadata, f, indent=4, ensure_ascii=False)
 
+
 def create_histograms(max_datasets: int, bin_count: int = 10):
     global error_count
-    process_list : list[Path] = []
+    process_list: list[Path] = []
     for path in SOURCE_DIR.rglob("croissant_metadata.json"):
         if len(list(path.parent.iterdir())) > 1:
             process_list.append(path.parent)
-    process_list = process_list[:min(max_datasets, len(process_list))]
+    process_list = process_list[: min(max_datasets, len(process_list))]
     with tqdm.tqdm(total=len(process_list), desc="processing datasets") as progress:
         for dataset_path in process_list:
             try:
@@ -135,13 +144,18 @@ def create_histograms(max_datasets: int, bin_count: int = 10):
                 print(f"Error occurred with {dataset_path}: {e}")
                 error_count += 1
             progress.update(1)
-    print(f"{len(process_list) - error_count} of {len(process_list)} datasets processed ({round((len(process_list) - error_count)/len(process_list) * 100)}%)")
-        
+    print(
+        f"{len(process_list) - error_count} of {len(process_list)} datasets processed ({round((len(process_list) - error_count) / len(process_list) * 100)}%)"
+    )
+
+
 def main():
     global SOURCE_DIR
     parser = argparse.ArgumentParser(description="create histograms for kaggle datasets")
     parser.add_argument("--path", type=str, help="path to metadata", default="../kaggle_metadata")
-    parser.add_argument("--count", type=int, help="max count of datasets to be processed", default=10**1000)
+    parser.add_argument(
+        "--count", type=int, help="max count of datasets to be processed", default=10**1000
+    )
     args = parser.parse_args()
     SOURCE_DIR = Path(args.path)
     max_count = args.count
@@ -149,6 +163,6 @@ def main():
     create_histograms(max_count)
     print("Done!")
 
+
 if __name__ == "__main__":
     main()
-    
