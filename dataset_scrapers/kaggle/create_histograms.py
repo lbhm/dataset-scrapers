@@ -146,20 +146,19 @@ def create_histograms(max_datasets: int, source_dir: Path, target_dir: Path, bin
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="create histograms for kaggle datasets")
-    parser.add_argument("--source", type=str, help="path to metadata", default="../kaggle_metadata")
     parser.add_argument(
         "--count", type=int, help="max count of datasets to be processed", default=10**1000
     )
+    parser.add_argument("--source", type=str, help="path to metadata", default="../kaggle_metadata")
     parser.add_argument("--result", type=str, help="path to result dir", default="../croissant")
     args = parser.parse_args()
     max_count = args.count
     RESULT_DIR = Path(args.result)
     SOURCE_DIR = Path(args.source)
 
-    if not RESULT_DIR.exists():
-        RESULT_DIR = Path("../croissant")
     if not SOURCE_DIR.exists():
-        SOURCE_DIR = Path("../kaggle_metadata")
+        print("This program requires a directory with croissant metadata to work!")
+        return
 
     RESULT_DIR.mkdir(exist_ok=True)
     create_histograms(max_count, SOURCE_DIR, RESULT_DIR)

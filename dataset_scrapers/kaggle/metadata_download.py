@@ -25,7 +25,6 @@ total_size = 0
 
 def download_meta_kaggle_dataset(api: KaggleApi) -> None:
     REF = "kaggle/meta-kaggle"
-    DATA_DIR.mkdir(exist_ok=True, parents=True)
     if not (DATA_DIR / "Datasets.csv").exists():
         print("Downloading Datasets.csv...")
         api.dataset_download_file(REF, file_name="Datasets.csv", path=DATA_DIR)
@@ -185,10 +184,8 @@ def main() -> None:
     keyword = args.keyword
     MAX_PAGES = args.maxpages
     MAX_WORKERS = args.maxworkers
-    if Path(args.data).exists():
-        DATA_DIR = Path(args.data)
-    if Path(args.output).exists():
-        OUTPUT_DIR = Path(args.output)
+
+    DATA_DIR.mkdir(exist_ok=True, parents=True)
     OUTPUT_DIR.mkdir(exist_ok=True, parents=True)
 
     if keyword == "all":

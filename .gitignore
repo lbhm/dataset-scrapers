@@ -163,7 +163,8 @@ cython_debug/
 .vscode/
 
 # Data directories
-kaggle_metadata/
-data/
-croissant/
+*plots/
+*kaggle_metadata/
+*data/
+*croissant/
 croissant.zip
