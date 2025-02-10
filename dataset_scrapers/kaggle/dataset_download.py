@@ -1,20 +1,12 @@
 import argparse
 import json
-import os
 import shutil
 from pathlib import Path
 
 import tqdm
 from kaggle.api.kaggle_api_extended import KaggleApi
 
-os.chdir(os.path.dirname(os.path.abspath(__file__)))
-
-# TODO: this should be in main
-api = KaggleApi()
-api.authenticate()
-
 unit_multipliers = {"B": 1 / (1024**2), "KB": 1 / 1024, "MB": 1, "GB": 1024, "TB": 1024**2}
-
 
 def convert_to_mb(string: str) -> float:
     parts = string.split()
@@ -29,12 +21,13 @@ def conditions_fullfilled(path: Path) -> tuple[bool, float | None]:
         data = json.load(file)
 
     distribution = data["distribution"]
+    size_string = "0 B"
     for item in distribution:
         # contentSize indicates size of .zip download file
         if "contentSize" in item:
-            size = item["contentSize"]
+            size_string = item["contentSize"]
             break
-    size = convert_to_mb(size)
+    size = convert_to_mb(size_string)
 
     # dataset too big (probably because of images)
     if size > 100:
@@ -46,7 +39,7 @@ def conditions_fullfilled(path: Path) -> tuple[bool, float | None]:
     return True, size
 
 
-def download_dataset(path: Path):
+def download_dataset(api: KaggleApi, path: Path) -> None:
     download_dir = str(path)
     ref = "/".join(download_dir.split("/")[-2:])
     api.dataset_download_files(ref, path=download_dir, unzip=True)
@@ -59,7 +52,7 @@ def exists(target_path: Path, base_dir: Path) -> bool:
     return False
 
 
-def flatten_csv_folders(base_dir: Path):
+def flatten_csv_folders(base_dir: Path) -> None:
     # remove single subfolder if exists
     subfiles = [f for f in base_dir.iterdir() if f.name != "croissant_metadata.json"]
     if len(subfiles) == 1 and subfiles[0].is_dir():
@@ -99,7 +92,10 @@ def flatten_csv_folders(base_dir: Path):
             folder.rmdir()
 
 
-def main():
+def main() -> None:
+    api = KaggleApi()
+    api.authenticate()
+
     parser = argparse.ArgumentParser(description="download kaggle datasets")
     parser.add_argument("--path", type=str, help="path to metadata", default="../kaggle_metadata")
     parser.add_argument("--index", type=int, help="start index to continue downloading", default=0)
@@ -112,7 +108,7 @@ def main():
         return
 
     total_size = 0
-    download_list: list[tuple[Path, int]] = []
+    download_list: list[tuple[Path, float]] = []
     # create list of datasets to download
     for path in METADATA_DIR.rglob("croissant_metadata.json"):
         total_size += 1
@@ -122,7 +118,7 @@ def main():
         except Exception as e:
             print(f"Exception occurred with {path}: {e}")
             exit()
-        if fulfilled:
+        if fulfilled and size is not None:
             download_list.append((path, size))
 
     # sort by size
@@ -139,7 +135,7 @@ def main():
             if len(list(path.parent.iterdir())) > 1:
                 continue
             try:
-                download_dataset(path.parent)
+                download_dataset(api, path.parent)
             except Exception as e:
                 print(f"Exception occurred with {path}: {e}")
             flatten_csv_folders(path.parent)

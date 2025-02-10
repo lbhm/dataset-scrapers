@@ -2,19 +2,14 @@ import argparse
 import json
 import os
 from pathlib import Path
-
+from typing import Any
 import matplotlib.pyplot as plt
-
-os.chdir(os.path.dirname(os.path.abspath(__file__)))  # TODO: don't hardcode dir changes
-
-OUTPUT_DIR = Path("../plots")
-OUTPUT_DIR.mkdir(exist_ok=True, parents=True)
 
 analyzed = 0  # datasets analyzed in total
 record_count = 0  # datasets with recordset
-metadata_total_size_wrecordset = 0
+metadata_total_size_wrecordset = 0.0
 
-file_types_count = {}  # file type : frequency
+file_types_count: dict[str, int] = {}  # file type : frequency
 file_sizes = []
 column_count = []
 csv_file_count = []
@@ -28,7 +23,7 @@ unit_multipliers = {
 }  # dont recreate unit multipliers every time
 
 
-def add_count(dictionary: dict, value: int):
+def add_count(dictionary: dict[str, int], value: str) -> None:
     if value in dictionary:
         dictionary[value] += 1
     else:
@@ -49,9 +44,10 @@ def convert_to_highest(value: float) -> tuple[float, str]:
     ):
         if value > multiplier:
             return value / multiplier, name
+    return value / unit_multipliers["B"], "B"
 
 
-def analyze_metadata(path: Path):
+def analyze_metadata(path: Path) -> None:
     global analyzed, record_count, metadata_total_size_wrecordset  # TODO: dont use global variables unless absolutely necessary
     # get metadata file from path
     with path.open("r", encoding="utf-8") as file:
@@ -61,6 +57,7 @@ def analyze_metadata(path: Path):
     # analyze distribution
     distribution = data["distribution"]
     nfiles = 0
+    size = "0 B"
     for item in distribution:
         # csv in @id indicates a tabular file
         if "csv" in item["@id"]:
@@ -84,10 +81,10 @@ def analyze_metadata(path: Path):
 
     records = data["recordSet"]
     record_count += 1
-    for file in records:
+    for file_record in records:
         columns = 0
         # collect data types in columns
-        for column in file["field"]:
+        for column in file_record["field"]:
             data_type = column["dataType"][0].rsplit(":", 1)[-1]
             add_count(file_types_count, data_type)
             columns += 1
@@ -95,7 +92,7 @@ def analyze_metadata(path: Path):
         column_count.append(columns)
 
 
-def plot_csv_file_count(max_files=100):
+def plot_csv_file_count(output_dir: Path, max_files: int=100) -> None:
     global csv_file_count
     total = len(csv_file_count)
     tabular = len([count for count in csv_file_count if count > 0])
@@ -105,10 +102,10 @@ def plot_csv_file_count(max_files=100):
     plt.xlabel("CSV files in a dataset")
     plt.ylabel("frequency")
     plt.title(f"CSV file count distribution ({round(tabular / total * 100, 2)}% > 0)")
-    plt.savefig(OUTPUT_DIR / "csv_file_count.png")
+    plt.savefig(output_dir / "csv_file_count.png")
 
 
-def plot_file_sizes(max_size=100000):
+def plot_file_sizes(output_dir: Path, max_size: int=100000) -> None:
     global file_sizes
     sum_size, unit = convert_to_highest(sum(file_sizes))
     # use filter to remove outliers
@@ -124,13 +121,13 @@ def plot_file_sizes(max_size=100000):
     plt.title(
         f"dataset size distribution of tabular datasets (.zip file). Total: {round(sum_size, 2)} {unit}"
     )
-    plt.savefig(OUTPUT_DIR / "file_sizes.png")
+    plt.savefig(output_dir / "file_sizes.png")
     print(
         f"Total size: {round(sum_size, 2)} {unit}. Filtered size (<{round(max_size_highest, 2)} {max_size_unit_highest}): {round(filter_sum_size, 2)} {filter_unit} ({filter_len} datasets)"
     )
 
 
-def plot_column_count(max_columns=100):
+def plot_column_count(output_dir: Path, max_columns: int=100) -> None:
     global column_count
     column_count = [count for count in column_count if count < max_columns]
     plt.figure(f"column counts of tabular datasets until {max_columns} columns")
@@ -138,10 +135,10 @@ def plot_column_count(max_columns=100):
     plt.xlabel("columns of tabular files")
     plt.ylabel("frequency")
     plt.title("column count distribution of datasets with recordset key")
-    plt.savefig(OUTPUT_DIR / "column_count.png")
+    plt.savefig(output_dir / "column_count.png")
 
 
-def plot_file_types():
+def plot_file_types(output_dir: Path) -> None:
     plt.figure("file types of tabular datasets")
     x, y = list(file_types_count.keys()), list(file_types_count.values())
     plt.bar(x, y, width=0.8, color="green", edgecolor="black")
@@ -151,7 +148,7 @@ def plot_file_types():
     plt.title(
         f"file type distribution of datasets with recordset key ({round(record_count / analyzed * 100, 2)}%)"
     )
-    plt.savefig(OUTPUT_DIR / "file_types.png")
+    plt.savefig(output_dir / "file_types.png")
     print(f"Analyzed {analyzed} datasets. {record_count} datasets with recordset key.")
     total_columns = 0
     numeric_columns = 0
@@ -162,28 +159,31 @@ def plot_file_types():
     print(f"Total columns: {total_columns}. Numeric columns: {numeric_columns}")
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description="analyze kaggle metadata")
-    parser.add_argument("--path", type=str, help="path to metadata", default="../kaggle_metadata")
+    parser.add_argument("--source", type=str, help="path to metadata", default="../kaggle_metadata")
+    parser.add_argument("--output", type=str, help="output path for plots", default="../plots")
     args = parser.parse_args()
-    kaggle_path = args.path
+    kaggle_path = Path(args.source)
+    output_dir = Path(args.output)
 
-    if os.path.exists(kaggle_path):
-        METADATA_DIR = Path(kaggle_path)
-    else:
-        print("Warning: Path does not exist. Using ../kaggle_metadata instead...")
-        METADATA_DIR = Path("../kaggle_metadata")
+    if not output_dir.exists():
+        output_dir = Path("../plots")
+    output_dir.mkdir(exist_ok=True, parents=True)
 
-    for path in METADATA_DIR.rglob("croissant_metadata.json"):
+    if not kaggle_path.exists():
+        kaggle_path = Path("../kaggle_metadata")
+
+    for path in kaggle_path.rglob("croissant_metadata.json"):
         try:
             analyze_metadata(path)
         except Exception as e:
             print(f"Error occurred with {path}: {e}")
 
-    plot_csv_file_count()
-    plot_file_sizes()
-    plot_column_count()
-    plot_file_types()
+    plot_csv_file_count(output_dir)
+    plot_file_sizes(output_dir)
+    plot_column_count(output_dir)
+    plot_file_types(output_dir)
     value, unit = convert_to_highest(metadata_total_size_wrecordset)
     print(f"Total size of metadata with recordset key: {round(value, 2)} {unit}")
 

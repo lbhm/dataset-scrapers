@@ -1,31 +1,25 @@
 import argparse
 import json
-import os
 from collections import Counter
 from pathlib import Path
+from typing import Any
 
 import cchardet
 import numpy as np
 import pandas as pd
 import tqdm
 
-os.chdir(os.path.dirname(os.path.abspath(__file__)))
-
-RESULT_DIR = Path("../croissant")  # TODO: fix hardcoded paths
-SOURCE_DIR = None
-
 error_count = 0
 
-
-def detect_separator(csv_file: str, encoding: str) -> str:
+def detect_separator(csv_file: Path, encoding: str) -> str:
     possible_separators = [",", ";", "\t", "|"]
     with open(csv_file, encoding=encoding) as f:
         sample = f.readline()
         counts = Counter({sep: sample.count(sep) for sep in possible_separators})
-    return max(counts, key=counts.get) if counts else ","
+    return max(counts, key=lambda k: counts[k]) if counts else ","
 
 
-def calculate_completeness(metadata) -> float:
+def calculate_completeness(metadata: dict[str, Any]) -> float:
     score = 0
     max_score = 6
     if metadata["license"]["name"] != "Unknown":
@@ -51,18 +45,19 @@ def calculate_completeness(metadata) -> float:
     return round(score / max_score, 2)
 
 
-def process_dataset(path: Path, bin_count: int):
+def process_dataset(path: Path, target_dir: Path, bin_count: int) -> None:
     # get metadata
     metadata_path = path / "croissant_metadata.json"
     with open(metadata_path, encoding="utf-8") as file:
-        metadata = json.load(file)
+        metadata : dict[str, Any] = json.load(file)
     records = metadata["recordSet"]
 
     score = calculate_completeness(metadata)
     metadata["usability"] = score
 
-    for file in records:
-        csv_file = path / file["@id"].replace("+", " ").replace("/", "_")
+    for file_record in records:
+        fileid: str = file_record["@id"]
+        csv_file = path / fileid.replace("+", " ").replace("/", "_")
         # guess appropiate encoding
         with open(csv_file, "rb") as f:
             result = cchardet.detect(f.read())
@@ -74,7 +69,7 @@ def process_dataset(path: Path, bin_count: int):
         )
         # remove unnecessary spaces
         df.columns = df.columns.str.strip()
-        for n, column in enumerate(file["field"]):
+        for n, column in enumerate(file_record["field"]):
             data_type = column["dataType"][0].rsplit(":", 1)[-1]
             column_name = column["name"]
             # catch case where column has empty name
@@ -125,21 +120,21 @@ def process_dataset(path: Path, bin_count: int):
 
     # write metadata in RESULT_DIR
     ref = "/".join(str(path).split("/")[-2:]).replace("/", "_")
-    with open(RESULT_DIR / (ref + ".json"), "w") as f:
+    with open(target_dir / (ref + ".json"), "w") as f:
         json.dump(metadata, f, indent=4, ensure_ascii=False)
 
 
-def create_histograms(max_datasets: int, bin_count: int = 10):
+def create_histograms(max_datasets: int, source_dir: Path, target_dir: Path, bin_count: int = 10) -> None:
     global error_count
     process_list: list[Path] = []
-    for path in SOURCE_DIR.rglob("croissant_metadata.json"):
+    for path in source_dir.rglob("croissant_metadata.json"):
         if len(list(path.parent.iterdir())) > 1:
             process_list.append(path.parent)
     process_list = process_list[: min(max_datasets, len(process_list))]
     with tqdm.tqdm(total=len(process_list), desc="processing datasets") as progress:
         for dataset_path in process_list:
             try:
-                process_dataset(dataset_path, bin_count)
+                process_dataset(dataset_path, target_dir, bin_count)
             except Exception as e:
                 print(f"Error occurred with {dataset_path}: {e}")
                 error_count += 1
@@ -149,18 +144,25 @@ def create_histograms(max_datasets: int, bin_count: int = 10):
     )
 
 
-def main():
-    global SOURCE_DIR
+def main() -> None:
     parser = argparse.ArgumentParser(description="create histograms for kaggle datasets")
-    parser.add_argument("--path", type=str, help="path to metadata", default="../kaggle_metadata")
+    parser.add_argument("--source", type=str, help="path to metadata", default="../kaggle_metadata")
     parser.add_argument(
         "--count", type=int, help="max count of datasets to be processed", default=10**1000
     )
+    parser.add_argument("--result", type=str, help="path to result dir", default="../croissant")
     args = parser.parse_args()
-    SOURCE_DIR = Path(args.path)
     max_count = args.count
+    RESULT_DIR = Path(args.result)
+    SOURCE_DIR = Path(args.source)
+
+    if not RESULT_DIR.exists():
+        RESULT_DIR = Path("../croissant")
+    if not SOURCE_DIR.exists():
+        SOURCE_DIR = Path("../kaggle_metadata")
+
     RESULT_DIR.mkdir(exist_ok=True)
-    create_histograms(max_count)
+    create_histograms(max_count, SOURCE_DIR, RESULT_DIR)
     print("Done!")
 
 
