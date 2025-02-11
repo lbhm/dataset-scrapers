@@ -11,6 +11,7 @@ import tqdm
 
 error_count = 0
 
+
 def detect_separator(csv_file: Path, encoding: str) -> str:
     possible_separators = [",", ";", "\t", "|"]
     with open(csv_file, encoding=encoding) as f:
@@ -49,7 +50,7 @@ def process_dataset(path: Path, target_dir: Path, bin_count: int) -> None:
     # get metadata
     metadata_path = path / "croissant_metadata.json"
     with open(metadata_path, encoding="utf-8") as file:
-        metadata : dict[str, Any] = json.load(file)
+        metadata: dict[str, Any] = json.load(file)
     records = metadata["recordSet"]
 
     score = calculate_completeness(metadata)
@@ -124,7 +125,9 @@ def process_dataset(path: Path, target_dir: Path, bin_count: int) -> None:
         json.dump(metadata, f, indent=4, ensure_ascii=False)
 
 
-def create_histograms(max_datasets: int, source_dir: Path, target_dir: Path, bin_count: int = 10) -> None:
+def create_histograms(
+    max_datasets: int, source_dir: Path, target_dir: Path, bin_count: int = 10
+) -> None:
     global error_count
     process_list: list[Path] = []
     for path in source_dir.rglob("croissant_metadata.json"):
@@ -149,7 +152,9 @@ def main() -> None:
     parser.add_argument(
         "--count", type=int, help="max count of datasets to be processed", default=10**1000
     )
-    parser.add_argument("--source", type=str, help="path to metadata", default="../kaggle_metadata")
+    parser.add_argument(
+        "--source", type=str, help="path to metadata", default="../kaggle_metadata"
+    )
     parser.add_argument("--result", type=str, help="path to result dir", default="../croissant")
     args = parser.parse_args()
     max_count = args.count

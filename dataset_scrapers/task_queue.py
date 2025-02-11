@@ -1,6 +1,7 @@
 import queue
+from collections.abc import Callable
 from threading import Thread
-from typing import Callable, Any
+from typing import Any
 
 
 class TaskQueue(queue.Queue[tuple[Callable[..., Any], tuple[Any, ...], dict[str, Any]]]):

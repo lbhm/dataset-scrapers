@@ -8,6 +8,7 @@ from kaggle.api.kaggle_api_extended import KaggleApi
 
 unit_multipliers = {"B": 1 / (1024**2), "KB": 1 / 1024, "MB": 1, "GB": 1024, "TB": 1024**2}
 
+
 def convert_to_mb(string: str) -> float:
     parts = string.split()
     if len(parts) != 2:
