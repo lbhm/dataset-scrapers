@@ -101,17 +101,17 @@ def main() -> None:
     parser.add_argument("--path", type=str, help="path to metadata", default="../kaggle_metadata")
     parser.add_argument("--index", type=int, help="start index to continue downloading", default=0)
     args = parser.parse_args()
-    METADATA_DIR = Path(args.path)
+    metadata_dir = Path(args.path)
     start_index = args.index
 
-    if not METADATA_DIR.exists():
+    if not metadata_dir.exists():
         print("This program requires a directory with croissant metadata to work!")
         return
 
     total_size = 0
     download_list: list[tuple[Path, float]] = []
     # create list of datasets to download
-    for path in METADATA_DIR.rglob("croissant_metadata.json"):
+    for path in metadata_dir.rglob("croissant_metadata.json"):
         total_size += 1
         # filter datasets by conditions
         try:
@@ -127,7 +127,7 @@ def main() -> None:
     downloaded_size = len(download_list)
     # download datasets
     with tqdm.tqdm(total=downloaded_size, desc="downloading datasets") as progress:
-        for path, size in download_list:
+        for path, _ in download_list:
             # skip datasets before start_index
             if progress.n < start_index:
                 progress.update(1)

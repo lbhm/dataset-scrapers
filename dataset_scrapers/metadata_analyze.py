@@ -112,11 +112,14 @@ class MetadataAnalyzer:
         plt.xlabel("dataset sizes (KB)")
         plt.ylabel("frequency")
         plt.title(
-            f"dataset size distribution of tabular datasets (.zip file). Total: {round(sum_size, 2)} {unit}"
+            f"""dataset size distribution of tabular datasets (.zip file).
+             Total: {round(sum_size, 2)} {unit}"""
         )
         plt.savefig(self.output_dir / "file_sizes.png")
         print(
-            f"Total size: {round(sum_size, 2)} {unit}. Filtered size (<{round(max_size_highest, 2)} {max_size_unit_highest}): {round(filter_sum_size, 2)} {filter_unit} ({filter_len} datasets)"
+            f"""Total size: {round(sum_size, 2)} {unit}.
+             Filtered size (<{round(max_size_highest, 2)} {max_size_unit_highest}):
+             {round(filter_sum_size, 2)} {filter_unit} ({filter_len} datasets)"""
         )
 
     def plot_column_count(self, max_columns: int = 100) -> None:
@@ -136,7 +139,8 @@ class MetadataAnalyzer:
         plt.xlabel("file types of tabular files")
         plt.ylabel("frequency")
         plt.title(
-            f"file type distribution of datasets with recordset key ({round(self.record_count / self.analyzed * 100, 2)}%)"
+            f"""file type distribution of datasets with recordset key
+             ({round(self.record_count / self.analyzed * 100, 2)}%)"""
         )
         plt.savefig(self.output_dir / "file_types.png")
         print(
