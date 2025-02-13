@@ -1,6 +1,7 @@
 import argparse
 import json
 import shutil
+import sys
 from pathlib import Path
 
 import tqdm
@@ -8,14 +9,15 @@ from kaggle.api.kaggle_api_extended import KaggleApi
 
 
 class DatasetDownloader:
-    def __init__(self, metadata_dir: Path, start_index: int) -> None:
+    def __init__(self, metadata_dir: Path, start_index: int = 0) -> None:
         self.metadata_dir = metadata_dir
         self.start_index = start_index
         self.total_size = 0
 
-        api = KaggleApi()
-        api.authenticate()
-        self.api = api
+        self.api = KaggleApi()
+        self.api.authenticate()
+
+        # NOTE: This could be moved to a utils file
         self.unit_multipliers = {
             "B": 1 / (1024**2),
             "KB": 1 / 1024,
@@ -24,14 +26,16 @@ class DatasetDownloader:
             "TB": 1024**2,
         }
 
-    def convert_to_mb(self, string: str) -> float:
-        parts = string.split()
-        if len(parts) != 2:
-            print(f"unexpected string format occurred: {string}")
-            quit()
+    def convert_to_mb(self, file_size: str) -> float:
+        parts = file_size.split()
+        if len(parts) != 2 or parts[1] not in self.unit_multipliers:
+            raise ValueError(f"Unexpected file size format occurred: {file_size}")
+
         return float(parts[0]) * self.unit_multipliers[parts[1]]
 
-    def conditions_fullfilled(self, path: Path) -> tuple[bool, float | None]:
+    def conditions_fullfilled(
+        self, path: Path, max_size: float = 100.0
+    ) -> tuple[bool, float | None]:
         with path.open("r", encoding="utf-8") as file:
             data = json.load(file)
 
@@ -44,19 +48,15 @@ class DatasetDownloader:
                 break
         size = self.convert_to_mb(size_string)
 
-        # dataset too big (probably because of images)
-        if size > 100:
-            return False, None
-        # dataset has no recordSet
-        if "recordSet" not in data:
+        # NOTE: We skip very large datasets
+        if size > max_size or "recordSet" not in data:
             return False, None
 
         return True, size
 
     def download_dataset(self, path: Path) -> None:
-        download_dir = str(path)
-        ref = "/".join(download_dir.split("/")[-2:])
-        self.api.dataset_download_files(ref, path=download_dir, unzip=True)
+        ref = "/".join(path.parts[-2:])
+        self.api.dataset_download_files(ref, path=str(path), unzip=True)
 
     def exists(self, target_path: Path, base_dir: Path) -> bool:
         for path in base_dir.rglob("*.csv"):
@@ -64,7 +64,7 @@ class DatasetDownloader:
                 return True
         return False
 
-    def flatten_csv_folders(self, base_dir: Path) -> None:
+    def flatten_csv_folders(self, base_dir: Path) -> None:  # noqa: C901
         # remove single subfolder if exists
         subfiles = [f for f in base_dir.iterdir() if f.name != "croissant_metadata.json"]
         if len(subfiles) == 1 and subfiles[0].is_dir():
@@ -113,21 +113,21 @@ class DatasetDownloader:
                 fulfilled, size = self.conditions_fullfilled(path)
             except Exception as e:
                 print(f"Exception occurred with {path}: {e}")
-                exit()
+                sys.exit(1)
             if fulfilled and size is not None:
                 download_list.append((path, size))
 
         # sort by size
         download_list = sorted(download_list, key=lambda x: x[1])
-        downloaded_size = len(download_list)
+        n_downloads = len(download_list)
         # download datasets
-        with tqdm.tqdm(total=downloaded_size, desc="downloading datasets") as progress:
+        with tqdm.tqdm(total=n_downloads, desc="downloading datasets") as progress:
             for path, _ in download_list:
                 # skip datasets before start_index
                 if progress.n < self.start_index:
                     progress.update(1)
                     continue
-                # check if dataset already downloaded
+                # check if dataset is already downloaded
                 if len(list(path.parent.iterdir())) > 1:
                     continue
                 try:
@@ -138,24 +138,38 @@ class DatasetDownloader:
                 progress.update(1)
 
         print(
-            f"""{downloaded_size} datasets downloaded
-             ({round(downloaded_size / self.total_size * 100, 2)}%)."""
+            f"""{n_downloads} datasets downloaded
+             ({round(n_downloads / self.total_size * 100, 2)}%)."""
         )
 
 
-def main() -> None:
+def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="download kaggle datasets")
-    parser.add_argument("--path", type=str, help="path to metadata", default="../kaggle_metadata")
-    parser.add_argument("--index", type=int, help="start index to continue downloading", default=0)
-    args = parser.parse_args()
+    parser.add_argument(
+        "--path",
+        type=str,
+        default="../kaggle_metadata",
+        help="path to metadata (default %(default)s)",
+    )
+    parser.add_argument(
+        "-i",
+        "--start-index",
+        type=int,
+        default=0,
+        help="start index to continue downloading (default %(default)s)",
+    )
+    return parser.parse_args()
+
+
+def main() -> None:
+    args = parse_args()
     metadata_dir = Path(args.path)
-    start_index = args.index
 
     if not metadata_dir.exists():
         print("This program requires a directory with croissant metadata to work!")
-        return
+        sys.exit(1)
 
-    downloader = DatasetDownloader(metadata_dir, start_index)
+    downloader = DatasetDownloader(metadata_dir, start_index=args.start_index)
     downloader.start()
 
 

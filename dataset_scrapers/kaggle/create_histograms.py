@@ -1,5 +1,6 @@
 import argparse
 import json
+import sys
 from collections import Counter
 from pathlib import Path
 from typing import Any
@@ -9,26 +10,33 @@ import numpy as np
 import pandas as pd
 import tqdm
 
-error_count = 0
 
 class HistogramCreator:
-    def __init__(self, max_count: int, source_dir: Path, target_dir: Path,
-                 bin_count: int = 10) -> None:
-        self.max_count = max_count
+    def __init__(
+        self, source_dir: Path, target_dir: Path, max_count: int, bin_count: int = 10
+    ) -> None:
         self.source_dir = source_dir
         self.target_dir = target_dir
+        self.max_count = max_count
         self.bin_count = bin_count
         self.error_count = 0
 
-    def detect_separator(self, csv_file: Path, encoding: str) -> str:
+    def analyze_csv_file(self, path: Path) -> tuple[str, str]:
+        """Analyze a CSV file and return its encoding and separator."""
         possible_separators = [",", ";", "\t", "|"]
-        with Path.open(csv_file, encoding=encoding) as f:
-            sample = f.readline()
+
+        with path.open("rb") as file:
+            result = cchardet.detect(file.read())
+            encoding = result["encoding"]
+
+        with path.open("r", encoding=encoding) as file:
+            sample = file.readline()
             counts = Counter({sep: sample.count(sep) for sep in possible_separators})
-        return max(counts, key=lambda k: counts[k]) if counts else ","
+        separator = max(counts, key=lambda k: counts[k]) if counts else ","
 
+        return encoding, separator
 
-    def calculate_completeness(self, metadata: dict[str, Any]) -> float:
+    def calculate_usability(self, metadata: dict[str, Any]) -> float:
         score = 0
         max_score = 6
         if metadata["license"]["name"] != "Unknown":
@@ -53,43 +61,38 @@ class HistogramCreator:
             break
         return round(score / max_score, 2)
 
-
-    def process_dataset(self, path: Path) -> None:
+    def process_dataset(self, path: Path) -> None:  # noqa: C901
         # get metadata
         metadata_path = path / "croissant_metadata.json"
-        with Path.open(metadata_path, encoding="utf-8") as file:
+        with metadata_path.open(encoding="utf-8") as file:
             metadata: dict[str, Any] = json.load(file)
-        records = metadata["recordSet"]
+        records: list[dict[str, Any]] = metadata["recordSet"]
 
-        score = self.calculate_completeness(metadata)
+        score = self.calculate_usability(metadata)
         metadata["usability"] = score
 
         for file_record in records:
-            fileid: str = file_record["@id"]
-            csv_file = path / fileid.replace("+", " ").replace("/", "_")
-            # guess appropiate encoding
-            with Path.open(csv_file, "rb") as f:
-                result = cchardet.detect(f.read())
-                encoding = result["encoding"]
-            # try to find correct separator
-            delimiter = self.detect_separator(csv_file, encoding)
+            csv_file = path / file_record["@id"].replace("+", " ").replace("/", "_")
+            encoding, separator = self.analyze_csv_file(csv_file)
             df = pd.read_csv(
-                csv_file, encoding=encoding, sep=delimiter, engine="python", on_bad_lines="skip"
+                csv_file, encoding=encoding, sep=separator, engine="python", on_bad_lines="skip"
             )
+
             # remove unnecessary spaces
             df.columns = df.columns.str.strip()
-            for n, column in enumerate(file_record["field"]):
-                data_type = column["dataType"][0].rsplit(":", 1)[-1]
+            for i, column in enumerate(file_record["field"]):
+                data_type = column["dataType"][0].rsplit(":", 1)[-1].lower()
                 column_name = column["name"]
                 # catch case where column has empty name
                 if column_name == "":
-                    column_name = f"Unnamed: {n}"
-                data = list(df[column_name].dropna())
+                    column_name = f"Unnamed: {i}"
+                data = df[column_name].dropna().to_list()
                 # case for numeric columns
-                if data_type == "Integer" or data_type == "Float":
+                if data_type in ["int", "integer", "float"]:
                     if isinstance(data[0], str):
                         try:
                             # catch case where 1923423 = "1,923,423"
+                            # NOTE: This causes issues with German-style decimal separators
                             data = [float(d.replace(",", "")) for d in data]
                         except Exception:
                             # map strings to numbers
@@ -105,12 +108,12 @@ class HistogramCreator:
                     }
                     column["statistics"] = df[column_name].dropna().describe().to_dict()
                 # case for text columns
-                elif data_type == "Text":
+                elif data_type == "text":
                     n_unique = len(set(data))
                     top_10 = dict(Counter(data).most_common(10))
                     column["n_unique"] = n_unique
                     column["most_common"] = top_10
-                elif data_type == "Boolean":
+                elif data_type == "boolean":
                     if isinstance(data[0], str):
                         data = [d.lower() for d in data]
                         if data[0] == "true" or data[0] == "false":
@@ -127,11 +130,10 @@ class HistogramCreator:
                     column["n_true"] = n_true
                     column["n_false"] = n_false
 
-        # write metadata in RESULT_DIR
-        ref = "/".join(str(path).split("/")[-2:]).replace("/", "_")
-        with Path.open(self.target_dir / (ref + ".json"), "w") as f:
-            json.dump(metadata, f, indent=4, ensure_ascii=False)
-
+        # write metadata to target_dir
+        file_name = "/".join(str(path).split("/")[-2:]).replace("/", "_") + ".json"
+        with (self.target_dir / file_name).open("w") as file:
+            json.dump(metadata, file, indent=4, ensure_ascii=False)
 
     def start(self) -> None:
         process_list: list[Path] = []
@@ -148,34 +150,57 @@ class HistogramCreator:
                     self.error_count += 1
                 progress.update(1)
         print(
-            f"""{len(process_list) - self.error_count} of {len(process_list)}
-            datasets processed
-            ({round((len(process_list) - self.error_count) / len(process_list) * 100)}%)"""
+            f"{len(process_list) - self.error_count} of {len(process_list)} datasets processed"
+            f"({round((len(process_list) - self.error_count) / len(process_list) * 100)}%)"
         )
 
 
-def main() -> None:
+def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="create histograms for kaggle datasets")
     parser.add_argument(
-        "--count", type=int, help="max count of datasets to be processed", default=10**1000
+        "--source",
+        type=str,
+        default="../kaggle_metadata",
+        help="path to metadata (default %(default)s)",
     )
     parser.add_argument(
-        "--source", type=str, help="path to metadata", default="../kaggle_metadata"
+        "--result",
+        type=str,
+        default="../croissant",
+        help="path to result dir (default %(default)s)",
     )
-    parser.add_argument("--result", type=str, help="path to result dir", default="../croissant")
-    args = parser.parse_args()
-    max_count = args.count
+    parser.add_argument(
+        "--max-datasets",
+        type=int,
+        default=10**1000,
+        help="max count of datasets to be processed (default %(default)s)",
+    )
+    parser.add_argument(
+        "--bin-count",
+        type=int,
+        default=10,
+        help="number of bins per histogram (default %(default)s)",
+    )
+    return parser.parse_args()
+
+
+def main() -> None:
+    args = parse_args()
     result_dir = Path(args.result)
     source_dir = Path(args.source)
 
     if not source_dir.exists():
         print("This program requires a directory with croissant metadata to work!")
-        return
-
+        sys.exit(1)
     result_dir.mkdir(exist_ok=True)
-    creator = HistogramCreator(max_count, source_dir, result_dir)
+
+    creator = HistogramCreator(
+        source_dir=source_dir,
+        target_dir=result_dir,
+        max_count=args.max_datasets,
+        bin_count=args.bin_count,
+    )
     creator.start()
-    print("Done!")
 
 
 if __name__ == "__main__":
