@@ -163,5 +163,8 @@ cython_debug/
 .vscode/
 
 # Data directories
-data/
-mongodb/
+*plots/
+*kaggle_metadata/
+*data/
+*croissant/
+croissant.zip
