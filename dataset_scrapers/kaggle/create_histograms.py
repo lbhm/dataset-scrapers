@@ -12,6 +12,8 @@ import cchardet
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
+from pandas import Series
+
 
 error_count: Synchronized[int]
 
@@ -20,7 +22,6 @@ def init_workers(counter: Synchronized[int]) -> None:
     """Initialize each worker with a global synchronized counter."""
     global error_count  # noqa: PLW0603
     error_count = counter
-
 
 class HistogramCreator:
     def __init__(
@@ -77,6 +78,45 @@ class HistogramCreator:
             break
         return round(score / max_score, 2)
 
+    def process_numerical(self, data: Series, column: dict[str, Any]):
+        if data.dtype == "object":
+            try:
+                # catch case where 1923423 = "1,923,423"
+                # NOTE: This causes issues with German-style decimal separators
+                data = data.str.replace(",", "").astype(float)
+            except Exception:
+                # map strings to numbers
+                unique_strings = list(set(data))
+                mapping = {string: idx for idx, string in enumerate(unique_strings)}
+                data = Series([mapping[item] for item in data])
+        # create histogram
+        densities, bins = np.histogram(data, density=True, bins=self.bin_count)
+        # save hist
+        column["histogram"] = {
+            "bins": list(bins),
+            "densities": list(densities / np.sum(densities)),
+        }
+        column["statistics"] = data.describe().to_dict()
+
+    def process_text(self, data: Series, column: dict[str, Any]):
+        n_unique = data.nunique()
+        top_10 = data.value_counts().head(10).to_dict()
+        column["n_unique"] = n_unique
+        column["most_common"] = top_10
+
+    def process_bool(self, data: Series, column: dict[str, Any]):
+        counts = data.value_counts().to_dict()
+        column["counts"] = counts
+
+    def process_date(self, data: Series, column: dict[str, Any]):
+        data = pd.to_datetime(data)
+        min_date, max_date = data.min(), data.max()
+        unique_dates = data.nunique()
+        column["min_date"] = min_date.isoformat()
+        column["max_date"] = max_date.isoformat()
+        column["unique_dates"] = unique_dates
+
+
     def process_dataset(self, path: Path) -> None:  # noqa: C901
         try:
             # get metadata
@@ -84,10 +124,10 @@ class HistogramCreator:
             with metadata_path.open(encoding="utf-8") as file:
                 metadata: dict[str, Any] = json.load(file)
             records: list[dict[str, Any]] = metadata["recordSet"]
-
+            # calculate usability
             score = self.calculate_usability(metadata)
             metadata["usability"] = score
-
+            # iterate through each file
             for file_record in records:
                 csv_file = path / file_record["@id"].replace("+", " ").replace("/", "_")
                 encoding, separator = self.analyze_csv_file(csv_file)
@@ -101,59 +141,23 @@ class HistogramCreator:
 
                 # remove unnecessary spaces
                 df.columns = df.columns.str.strip()
+                # iterate through each column
                 for i, column in enumerate(file_record["field"]):
                     data_type = column["dataType"][0].rsplit(":", 1)[-1].lower()
                     column_name = column["name"]
                     # catch case where column has empty name
                     if column_name == "":
                         column_name = f"Unnamed: {i}"
-                    data = df[column_name].dropna().to_list()
-                    # case for numeric columns
+                    data = df[column_name].dropna()
+
                     if data_type in ["int", "integer", "float"]:
-                        if isinstance(data[0], str):
-                            try:
-                                # catch case where 1923423 = "1,923,423"
-                                # NOTE: This causes issues with German-style decimal separators
-                                data = [float(d.replace(",", "")) for d in data]
-                            except Exception:
-                                # map strings to numbers
-                                unique_strings = list(set(data))
-                                mapping = {
-                                    string: idx for idx, string in enumerate(unique_strings)
-                                }
-                                data = [mapping[item] for item in data]
-                        # create histogram
-                        densities, bins = np.histogram(data, density=True, bins=self.bin_count)
-                        # save hist
-                        column["histogram"] = {
-                            "bins": list(bins),
-                            "densities": list(densities / np.sum(densities)),
-                        }
-                        column["statistics"] = df[column_name].dropna().describe().to_dict()
-                    # case for text columns
+                        self.process_numerical(data, column)
                     elif data_type == "text":
-                        n_unique = len(set(data))
-                        top_10 = dict(Counter(data).most_common(10))
-                        column["n_unique"] = n_unique
-                        column["most_common"] = top_10
+                        self.process_text(data, column)
                     elif data_type == "boolean":
-                        if isinstance(data[0], str):
-                            data = [d.lower() for d in data]
-                            if data[0] == "true" or data[0] == "false":
-                                data = [d == "true" for d in data]
-                            elif data[0] == "yes" or data[0] == "no":
-                                data = [d == "yes" for d in data]
-                            elif data[0] == "t" or data[0] == "f":
-                                data = [d == "t" for d in data]
-                        elif isinstance(data[0], int | float):
-                            max_value = max(data)
-                            data = [d == max_value for d in data]
-                        n_true = sum(data)
-                        n_false = len(data) - n_true
-                        column["n_true"] = n_true
-                        column["n_false"] = n_false
+                        self.process_bool(data, column)
                     elif data_type == "date":
-                        pass
+                        self.process_date(data, column)
 
             # write metadata to target_dir
             file_name = "/".join(str(path).split("/")[-2:]).replace("/", "_") + ".json"
