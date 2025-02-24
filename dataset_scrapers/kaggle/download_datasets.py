@@ -1,11 +1,27 @@
 import argparse
+import contextlib
 import json
 import shutil
 import sys
+from collections.abc import Generator
 from pathlib import Path
+from typing import TextIO
 
 import tqdm
 from kaggle.api.kaggle_api_extended import KaggleApi
+from tqdm.contrib import DummyTqdmFile
+
+
+@contextlib.contextmanager
+def redirect_to_tqdm() -> Generator[TextIO]:
+    orig_out_err = sys.stdout, sys.stderr
+    try:
+        sys.stdout, sys.stderr = map(DummyTqdmFile, orig_out_err)
+        yield orig_out_err[0]
+    except Exception as exc:
+        raise exc
+    finally:
+        sys.stdout, sys.stderr = orig_out_err
 
 
 class DatasetDownloader:
@@ -121,7 +137,10 @@ class DatasetDownloader:
         download_list = sorted(download_list, key=lambda x: x[1])
         n_downloads = len(download_list)
         # download datasets
-        with tqdm.tqdm(total=n_downloads, desc="downloading datasets") as progress:
+        with (
+            redirect_to_tqdm() as output,
+            tqdm.tqdm(total=n_downloads, desc="Downloading datasets", file=output) as progress,
+        ):
             for path, _ in download_list:
                 # skip datasets before start_index
                 if progress.n < self.start_index:
@@ -138,8 +157,8 @@ class DatasetDownloader:
                 progress.update(1)
 
         print(
-            f"""{n_downloads} datasets downloaded
-             ({round(n_downloads / self.total_size * 100, 2)}%)."""
+            f"{n_downloads} datasets downloaded or cached "
+            f"({round(n_downloads / self.total_size * 100, 2)}%)."
         )
 
 

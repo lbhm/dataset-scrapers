@@ -2,7 +2,9 @@ import argparse
 import json
 import multiprocessing as mp
 import sys
+import time
 from collections import Counter
+from multiprocessing.sharedctypes import Synchronized
 from pathlib import Path
 from typing import Any
 
@@ -11,17 +13,29 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
+error_count: Synchronized[int]
+
+
+def init_workers(counter: Synchronized[int]) -> None:
+    """Initialize each worker with a global synchronized counter."""
+    global error_count  # noqa: PLW0603
+    error_count = counter
+
 
 class HistogramCreator:
     def __init__(
-        self, source_dir: Path, target_dir: Path, max_count: int, bin_count: int = 10
+        self,
+        source_dir: Path,
+        target_dir: Path,
+        max_count: int,
+        bin_count: int = 10,
+        workers: int = mp.cpu_count(),
     ) -> None:
         self.source_dir = source_dir
         self.target_dir = target_dir
         self.max_count = max_count
         self.bin_count = bin_count
-        self.error_count = mp.Value("I", 0)
-        self.num_processes = mp.cpu_count()
+        self.num_processes = workers
 
     def analyze_csv_file(self, path: Path) -> tuple[str, str]:
         """Analyze a CSV file and return its encoding and separator."""
@@ -146,9 +160,9 @@ class HistogramCreator:
             with (self.target_dir / file_name).open("w") as file:
                 json.dump(metadata, file, indent=4, ensure_ascii=False)
         except Exception as e:
-            print(f"Error occurred with {path}: {e}")
-            with self.error_count.get_lock():
-                self.error_count.value += 1
+            print(f"Error occurred with {path}: {e}", flush=True)
+            with error_count.get_lock():
+                error_count.value += 1
 
     def start(self) -> None:
         dataset_paths: list[Path] = []
@@ -157,12 +171,16 @@ class HistogramCreator:
                 dataset_paths.append(path.parent)
         dataset_paths = dataset_paths[: min(self.max_count, len(dataset_paths))]
         n_datasets = len(dataset_paths)
-        with mp.Pool(processes=self.num_processes) as pool:
+
+        error_count = mp.Value("I", 0)
+        with mp.Pool(
+            processes=self.num_processes, initializer=init_workers, initargs=(error_count,)
+        ) as pool:
             list(tqdm(pool.imap_unordered(self.process_dataset, dataset_paths), total=n_datasets))
 
         print(
-            f"{n_datasets - self.error_count.value} of {n_datasets} datasets processed "
-            f"({round((n_datasets - self.error_count.value) / n_datasets * 100)}%)"
+            f"{n_datasets - error_count.value} of {n_datasets} datasets processed "
+            f"({round((n_datasets - error_count.value) / n_datasets * 100)}%)"
         )
 
 
@@ -192,10 +210,19 @@ def parse_args() -> argparse.Namespace:
         default=10,
         help="number of bins per histogram (default %(default)s)",
     )
+    parser.add_argument(
+        "-w",
+        "--workers",
+        type=int,
+        default=mp.cpu_count(),
+        help="number of workers to use (default %(default)s)",
+    )
     return parser.parse_args()
 
 
 def main() -> None:
+    start = time.perf_counter()
+    mp.set_start_method("spawn")
     args = parse_args()
     result_dir = Path(args.result)
     source_dir = Path(args.source)
@@ -210,8 +237,10 @@ def main() -> None:
         target_dir=result_dir,
         max_count=args.max_datasets,
         bin_count=args.bin_count,
+        workers=args.workers,
     )
     creator.start()
+    print(f"Finished in {time.perf_counter() - start:.2f} seconds.")
 
 
 if __name__ == "__main__":
