@@ -1,7 +1,7 @@
 import argparse
 import json
-import sys
 import multiprocessing as mp
+import sys
 from collections import Counter
 from pathlib import Path
 from typing import Any
@@ -10,7 +10,7 @@ import cchardet
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
-from time import perf_counter
+
 
 class HistogramCreator:
     def __init__(
@@ -20,7 +20,7 @@ class HistogramCreator:
         self.target_dir = target_dir
         self.max_count = max_count
         self.bin_count = bin_count
-        self.error_count = 0
+        self.error_count = mp.Value("I", 0)
         self.num_processes = mp.cpu_count()
 
     def analyze_csv_file(self, path: Path) -> tuple[str, str]:
@@ -64,7 +64,7 @@ class HistogramCreator:
         return round(score / max_score, 2)
 
     def process_dataset(self, path: Path) -> None:  # noqa: C901
-        try: 
+        try:
             # get metadata
             metadata_path = path / "croissant_metadata.json"
             with metadata_path.open(encoding="utf-8") as file:
@@ -78,7 +78,11 @@ class HistogramCreator:
                 csv_file = path / file_record["@id"].replace("+", " ").replace("/", "_")
                 encoding, separator = self.analyze_csv_file(csv_file)
                 df = pd.read_csv(
-                    csv_file, encoding=encoding, sep=separator, engine="python", on_bad_lines="skip"
+                    csv_file,
+                    encoding=encoding,
+                    sep=separator,
+                    engine="python",
+                    on_bad_lines="skip",
                 )
 
                 # remove unnecessary spaces
@@ -100,7 +104,9 @@ class HistogramCreator:
                             except Exception:
                                 # map strings to numbers
                                 unique_strings = list(set(data))
-                                mapping = {string: idx for idx, string in enumerate(unique_strings)}
+                                mapping = {
+                                    string: idx for idx, string in enumerate(unique_strings)
+                                }
                                 data = [mapping[item] for item in data]
                         # create histogram
                         densities, bins = np.histogram(data, density=True, bins=self.bin_count)
@@ -141,21 +147,22 @@ class HistogramCreator:
                 json.dump(metadata, file, indent=4, ensure_ascii=False)
         except Exception as e:
             print(f"Error occurred with {path}: {e}")
-            self.error_count += 1   
+            with self.error_count.get_lock():
+                self.error_count.value += 1
 
     def start(self) -> None:
-        process_list: list[Path] = []
+        dataset_paths: list[Path] = []
         for path in self.source_dir.rglob("croissant_metadata.json"):
             if len(list(path.parent.iterdir())) > 1:
-                process_list.append(path.parent)
-        process_list = process_list[: min(self.max_count, len(process_list))]
-        process_len = len(process_list)
+                dataset_paths.append(path.parent)
+        dataset_paths = dataset_paths[: min(self.max_count, len(dataset_paths))]
+        n_datasets = len(dataset_paths)
         with mp.Pool(processes=self.num_processes) as pool:
-            list(tqdm(pool.imap_unordered(self.process_dataset, process_list), total=process_len))
+            list(tqdm(pool.imap_unordered(self.process_dataset, dataset_paths), total=n_datasets))
 
         print(
-            f"{process_len - self.error_count} of {process_len} datasets processed "
-            f"({round((process_len - self.error_count) / process_len * 100)}%)"
+            f"{n_datasets - self.error_count.value} of {n_datasets} datasets processed "
+            f"({round((n_datasets - self.error_count.value) / n_datasets * 100)}%)"
         )
 
 
