@@ -11,17 +11,17 @@ from typing import Any
 import cchardet
 import numpy as np
 import pandas as pd
-from tqdm import tqdm
 from pandas import Series
+from tqdm import tqdm
+
+error_count: Synchronized[int]
 
 
-error_count: Synchronized
-
-
-def init_workers(counter: Synchronized) -> None:
+def init_workers(counter: Synchronized[int]) -> None:
     """Initialize each worker with a global synchronized counter."""
     global error_count  # noqa: PLW0603
     error_count = counter
+
 
 class HistogramCreator:
     def __init__(
@@ -78,7 +78,7 @@ class HistogramCreator:
             break
         return round(score / max_score, 2)
 
-    def process_numerical(self, data: Series, column: dict[str, Any]):
+    def process_numerical(self, data: Series, column: dict[str, Any]) -> None:
         if data.dtype == "object":
             try:
                 # catch case where 1923423 = "1,923,423"
@@ -98,17 +98,17 @@ class HistogramCreator:
         }
         column["statistics"] = data.describe().to_dict()
 
-    def process_text(self, data: Series, column: dict[str, Any]):
+    def process_text(self, data: Series, column: dict[str, Any]) -> None:
         n_unique = data.nunique()
         top_10 = data.value_counts().head(10).to_dict()
         column["n_unique"] = n_unique
         column["most_common"] = top_10
 
-    def process_bool(self, data: Series, column: dict[str, Any]):
+    def process_bool(self, data: Series, column: dict[str, Any]) -> None:
         counts = data.value_counts().to_dict()
         column["counts"] = counts
 
-    def process_date(self, data: Series, column: dict[str, Any]):
+    def process_date(self, data: Series, column: dict[str, Any]) -> None:
         data = pd.to_datetime(data, format="mixed")
         min_date, max_date = data.min(), data.max()
         unique_dates = data.nunique()
@@ -116,8 +116,7 @@ class HistogramCreator:
         column["max_date"] = max_date.isoformat()
         column["unique_dates"] = unique_dates
 
-
-    def process_dataset(self, path: Path) -> None:  # noqa: C901
+    def process_dataset(self, path: Path) -> None:
         try:
             # get metadata
             metadata_path = path / "croissant_metadata.json"
