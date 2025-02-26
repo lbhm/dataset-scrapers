@@ -15,10 +15,10 @@ from tqdm import tqdm
 from pandas import Series
 
 
-error_count: Synchronized[int]
+error_count: Synchronized
 
 
-def init_workers(counter: Synchronized[int]) -> None:
+def init_workers(counter: Synchronized) -> None:
     """Initialize each worker with a global synchronized counter."""
     global error_count  # noqa: PLW0603
     error_count = counter
@@ -109,7 +109,7 @@ class HistogramCreator:
         column["counts"] = counts
 
     def process_date(self, data: Series, column: dict[str, Any]):
-        data = pd.to_datetime(data)
+        data = pd.to_datetime(data, format="mixed")
         min_date, max_date = data.min(), data.max()
         unique_dates = data.nunique()
         column["min_date"] = min_date.isoformat()
