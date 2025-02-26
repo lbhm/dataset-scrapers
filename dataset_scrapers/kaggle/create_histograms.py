@@ -1,18 +1,22 @@
+from __future__ import annotations
+
 import argparse
 import json
 import multiprocessing as mp
 import sys
 import time
 from collections import Counter
-from multiprocessing.sharedctypes import Synchronized
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import cchardet
 import numpy as np
 import pandas as pd
 from pandas import Series
 from tqdm import tqdm
+
+if TYPE_CHECKING:
+    from multiprocessing.sharedctypes import Synchronized
 
 error_count: Synchronized[int]
 
@@ -86,7 +90,7 @@ class HistogramCreator:
                 data = data.str.replace(",", "").astype(float)
             except Exception:
                 # map strings to numbers
-                unique_strings = list(set(data))
+                unique_strings = list(data.unique())
                 mapping = {string: idx for idx, string in enumerate(unique_strings)}
                 data = Series([mapping[item] for item in data])
         # create histogram
@@ -109,7 +113,8 @@ class HistogramCreator:
         column["counts"] = counts
 
     def process_date(self, data: Series, column: dict[str, Any]) -> None:
-        data = pd.to_datetime(data, format="mixed")
+        # NOTE: Using mixed format is risky and can lead to false date parsing
+        data = pd.to_datetime(data, format="mixed", dayfirst=True)
         min_date, max_date = data.min(), data.max()
         unique_dates = data.nunique()
         column["min_date"] = min_date.isoformat()
