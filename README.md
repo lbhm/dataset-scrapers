@@ -12,6 +12,10 @@ TODO
 
 **Note:** We recommend using [`uv`](https://docs.astral.sh/uv/) to install and manage the project dependencies.
 
+To install the necessary dependencies, run `uv sync --extra dev`.
+
+After that, activate the created virtual environment using `source .venv/bin/activate`.
+
 ## Dataset Collections
 
 ### Available
