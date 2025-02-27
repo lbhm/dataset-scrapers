@@ -90,8 +90,7 @@ class HistogramCreator:
                 data = data.str.replace(",", "").astype(float)
             except Exception:
                 # map strings to numbers
-                unique_strings = list(data.unique())
-                mapping = {string: idx for idx, string in enumerate(unique_strings)}
+                mapping = {string: idx for idx, string in enumerate(data.unique())}
                 data = Series([mapping[item] for item in data])
         # create histogram
         densities, bins = np.histogram(data, density=True, bins=self.bin_count)
