@@ -169,7 +169,22 @@ class HistogramCreator:
         except Exception as e:
             print(f"Error occurred with {path}: {e}", flush=True)
             with error_count.get_lock():
+                error_id = error_count.value
                 error_count.value += 1
+
+            filename = Path("../errors") / f"error_{error_id}.log"
+            with Path.open(filename, "w") as f:
+                f.write(str(e) + ":" + str(path))
+
+    def merge_errors(self, error_dir: Path = Path("../errors")) -> None:
+        lines = []
+        for error_file in error_dir.iterdir():
+            if error_file.is_file():
+                with error_file.open("r", encoding="utf-8") as f:
+                    lines.extend(f.readlines())
+        lines.sort()
+        output_file = Path("../error_list.log")
+        output_file.write_text("".join(lines), encoding="utf-8")
 
     def start(self) -> None:
         dataset_paths: list[Path] = []
@@ -185,6 +200,7 @@ class HistogramCreator:
         ) as pool:
             list(tqdm(pool.imap_unordered(self.process_dataset, dataset_paths), total=n_datasets))
 
+        self.merge_errors()
         print(
             f"{n_datasets - error_count.value} of {n_datasets} datasets processed "
             f"({round((n_datasets - error_count.value) / n_datasets * 100)}%)"
