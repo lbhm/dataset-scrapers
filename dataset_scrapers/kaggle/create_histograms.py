@@ -38,9 +38,11 @@ class HistogramCreator:
     ) -> None:
         self.source_dir = source_dir
         self.target_dir = target_dir
+        self.error_dir = Path("../errors")
         self.max_count = max_count
         self.bin_count = bin_count
         self.num_processes = workers
+        self.error_dir.mkdir(parents=True, exist_ok=True)
 
     def analyze_csv_file(self, path: Path) -> tuple[str, str]:
         """Analyze a CSV file and return its encoding and separator."""
@@ -120,18 +122,28 @@ class HistogramCreator:
         column["max_date"] = max_date.isoformat()
         column["unique_dates"] = unique_dates
 
+    def handle_exception(self, path: Path, e: Exception, mode: int) -> None:
+        print(f"Error occurred with {path}: {e}", flush=True)
+        with error_count.get_lock():
+            error_id = error_count.value
+            error_count.value += 1
+        mode_header = "File" if mode == 0 else "Column"
+        filename = self.error_dir / f"error_{error_id}.log"
+        with Path.open(filename, "w") as f:
+            f.write(mode_header + str(type(e).__name__) + ":" + str(e) + ":" + str(path))
+
     def process_dataset(self, path: Path) -> None:
-        try:
-            # get metadata
-            metadata_path = path / "croissant_metadata.json"
-            with metadata_path.open(encoding="utf-8") as file:
-                metadata: dict[str, Any] = json.load(file)
-            records: list[dict[str, Any]] = metadata["recordSet"]
-            # calculate usability
-            score = self.calculate_usability(metadata)
-            metadata["usability"] = score
-            # iterate through each file
-            for file_record in records:
+        # get metadata
+        metadata_path = path / "croissant_metadata.json"
+        with metadata_path.open(encoding="utf-8") as file:
+            metadata: dict[str, Any] = json.load(file)
+        records: list[dict[str, Any]] = metadata["recordSet"]
+        # calculate usability
+        score = self.calculate_usability(metadata)
+        metadata["usability"] = score
+        # iterate through each file
+        for file_record in records:
+            try:
                 csv_file = path / file_record["@id"].replace("+", " ").replace("/", "_")
                 encoding, separator = self.analyze_csv_file(csv_file)
                 df = pd.read_csv(
@@ -141,11 +153,15 @@ class HistogramCreator:
                     engine="python",
                     on_bad_lines="skip",
                 )
+            except Exception as e:
+                self.handle_exception(path, e, 0)
+                continue
 
-                # remove unnecessary spaces
-                df.columns = df.columns.str.strip()
-                # iterate through each column
-                for i, column in enumerate(file_record["field"]):
+            # remove unnecessary spaces
+            df.columns = df.columns.str.strip()
+            # iterate through each column
+            for i, column in enumerate(file_record["field"]):
+                try:
                     data_type = column["dataType"][0].rsplit(":", 1)[-1].lower()
                     column_name = column["name"]
                     # catch case where column has empty name
@@ -161,30 +177,25 @@ class HistogramCreator:
                         self.process_bool(data, column)
                     elif data_type == "date":
                         self.process_date(data, column)
+                except Exception as e:
+                    self.handle_exception(path, e, 1)
+                    column["error"] = str(e)
+                    continue
 
-            # write metadata to target_dir
-            file_name = "/".join(str(path).split("/")[-2:]).replace("/", "_") + ".json"
-            with (self.target_dir / file_name).open("w") as file:
-                json.dump(metadata, file, indent=4, ensure_ascii=False)
-        except Exception as e:
-            print(f"Error occurred with {path}: {e}", flush=True)
-            with error_count.get_lock():
-                error_id = error_count.value
-                error_count.value += 1
+        # write metadata to target_dir
+        file_name = "/".join(str(path).split("/")[-2:]).replace("/", "_") + ".json"
+        with (self.target_dir / file_name).open("w") as file:
+            json.dump(metadata, file, indent=4, ensure_ascii=False)
 
-            filename = Path("../errors") / f"error_{error_id}.log"
-            with Path.open(filename, "w") as f:
-                f.write(str(e) + ":" + str(path))
-
-    def merge_errors(self, error_dir: Path = Path("../errors")) -> None:
+    def merge_errors(self) -> None:
         lines = []
-        for error_file in error_dir.iterdir():
+        for error_file in self.error_dir.iterdir():
             if error_file.is_file():
                 with error_file.open("r", encoding="utf-8") as f:
                     lines.extend(f.readlines())
         lines.sort()
         output_file = Path("../error_list.log")
-        output_file.write_text("".join(lines), encoding="utf-8")
+        output_file.write_text("\n".join(lines), encoding="utf-8")
 
     def start(self) -> None:
         dataset_paths: list[Path] = []
@@ -201,10 +212,7 @@ class HistogramCreator:
             list(tqdm(pool.imap_unordered(self.process_dataset, dataset_paths), total=n_datasets))
 
         self.merge_errors()
-        print(
-            f"{n_datasets - error_count.value} of {n_datasets} datasets processed "
-            f"({round((n_datasets - error_count.value) / n_datasets * 100)}%)"
-        )
+        print(f"{error_count.value} errors occurred while processing {n_datasets} datasets")
 
 
 def parse_args() -> argparse.Namespace:
