@@ -82,7 +82,7 @@ class MetadataDownloader:
             left_on=["CurrentDatasetVersionId"],
             right_on=["DatasetVersionId"],
         ).merge(users, how="left", left_on="OwnerUserId", right_on="UserId")
-        merged.dropna(subset=["UserName", "Slug"], inplace=True)
+        merged = merged.dropna(subset=["UserName", "Slug"])
         merged = merged[["UserName", "Slug"]]
         with Path.open(self.data_dir / "username_slug.txt", "w") as file:
             for _, row in merged.iterrows():
@@ -105,15 +105,12 @@ class MetadataDownloader:
             return refs
 
     def read_refs_from_file(self) -> list[str]:
-        refs = []
         try:
             with Path.open(self.data_dir / "username_slug.txt") as file:
-                for line in file:
-                    refs.append(line.strip())
-            return refs
+                return [line.strip() for line in file]
         except Exception as e:
             print("Error while reading refs from file:", e)
-            return refs
+            return []
 
     def get_croissant_metadata(self, ref: str) -> tuple[dict[str, Any] | Exception | int, int]:
         url = "https://www.kaggle.com/datasets/" + ref + "/croissant/download"

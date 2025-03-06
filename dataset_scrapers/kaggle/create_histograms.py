@@ -134,7 +134,7 @@ class HistogramCreator:
             for file_record in records:
                 csv_file = path / file_record["@id"].replace("+", " ").replace("/", "_")
                 encoding, separator = self.analyze_csv_file(csv_file)
-                df = pd.read_csv(
+                table = pd.read_csv(
                     csv_file,
                     encoding=encoding,
                     sep=separator,
@@ -143,7 +143,7 @@ class HistogramCreator:
                 )
 
                 # remove unnecessary spaces
-                df.columns = df.columns.str.strip()
+                table.columns = table.columns.str.strip()
                 # iterate through each column
                 for i, column in enumerate(file_record["field"]):
                     data_type = column["dataType"][0].rsplit(":", 1)[-1].lower()
@@ -151,7 +151,7 @@ class HistogramCreator:
                     # catch case where column has empty name
                     if column_name == "":
                         column_name = f"Unnamed: {i}"
-                    data = df[column_name].dropna()
+                    data = table[column_name].dropna()
 
                     if data_type in ["int", "integer", "float"]:
                         self.process_numerical(data, column)
@@ -172,10 +172,11 @@ class HistogramCreator:
                 error_count.value += 1
 
     def start(self) -> None:
-        dataset_paths: list[Path] = []
-        for path in self.source_dir.rglob("croissant_metadata.json"):
-            if len(list(path.parent.iterdir())) > 1:
-                dataset_paths.append(path.parent)
+        dataset_paths = [
+            path.parent
+            for path in self.source_dir.rglob("croissant_metadata.json")
+            if len(list(path.parent.iterdir())) > 1
+        ]
         dataset_paths = dataset_paths[: min(self.max_count, len(dataset_paths))]
         n_datasets = len(dataset_paths)
 
