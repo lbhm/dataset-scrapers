@@ -18,6 +18,9 @@ from tqdm import tqdm
 if TYPE_CHECKING:
     from multiprocessing.sharedctypes import Synchronized
 
+# os.chdir(os.path.dirname(os.path.abspath(__file__)))
+
+
 error_count: Synchronized[int]
 
 
@@ -130,7 +133,7 @@ class HistogramCreator:
         mode_header = "File" if mode == 0 else "Column"
         filename = self.error_dir / f"error_{error_id}.log"
         with Path.open(filename, "w") as f:
-            f.write(mode_header + str(type(e).__name__) + ":" + str(e) + ":" + str(path))
+            f.write(mode_header + str(type(e).__name__) + ";" + str(e) + ";" + str(path))
 
     def process_dataset(self, path: Path) -> None:
         # get metadata
@@ -188,20 +191,65 @@ class HistogramCreator:
             json.dump(metadata, file, indent=4, ensure_ascii=False)
 
     def merge_errors(self) -> None:
-        lines = []
+        lines: list[str] = []
         for error_file in self.error_dir.iterdir():
             if error_file.is_file():
                 with error_file.open("r", encoding="utf-8") as f:
                     lines.extend(f.readlines())
+        lines = [line.replace("\n", "") for line in lines]
         lines.sort()
         output_file = Path("../error_list.log")
         output_file.write_text("\n".join(lines), encoding="utf-8")
+
+    def calculate_kaggle_path(self, path: Path, base_dir: Path) -> str:
+        path = path.relative_to(base_dir.parent)
+        filename = path.name
+        same_names: list[Path] = []
+        for p in base_dir.rglob(filename):
+            p_relative = p.relative_to(base_dir.parent)
+            if p_relative != path:
+                same_names.append(p_relative)
+        # no conflicts with other paths, return just the filename
+        if len(same_names) == 0:
+            return filename
+        # search for earliest folder where paths diverge
+        i = 0
+        while any(
+            p.relative_to(p.parts[i]) == path.relative_to(path.parts[i]) for p in same_names
+        ):
+            i += 1
+        return str(path.relative_to(path.parts[i])).replace("/", "_")
+
+    def flatten_csv_folders(self, base_dir: Path) -> None:
+        # remove .csv ending for folders
+        for path in base_dir.rglob("*.csv"):
+            if path.is_dir():
+                path.rename(path.with_name(path.stem))
+
+        # create a list of paths to be renamed
+        rename_list: list[tuple[Path, Path]] = []
+        for path in base_dir.rglob("*.csv"):
+            if not path.is_file():
+                continue
+            target_path = base_dir / self.calculate_kaggle_path(path, base_dir)
+            if path != target_path:
+                rename_list.append((path, target_path))
+        # rename afterwards to avoid problems
+        for src, target in rename_list:
+            src.rename(target)
+        # delete empty directories
+        for folder in sorted(
+            base_dir.rglob("*"), key=lambda p: -len(p.parts)
+        ):  # start from the bottom
+            if folder.is_dir() and not any(folder.iterdir()):
+                folder.rmdir()
 
     def start(self) -> None:
         dataset_paths: list[Path] = []
         for path in self.source_dir.rglob("croissant_metadata.json"):
             if len(list(path.parent.iterdir())) > 1:
                 dataset_paths.append(path.parent)
+                self.flatten_csv_folders(path.parent)
         dataset_paths = dataset_paths[: min(self.max_count, len(dataset_paths))]
         n_datasets = len(dataset_paths)
 
