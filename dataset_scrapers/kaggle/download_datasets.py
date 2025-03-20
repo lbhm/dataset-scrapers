@@ -104,6 +104,7 @@ class DatasetDownloader:
                     continue
                 # check if dataset is already downloaded
                 if len(list(path.parent.iterdir())) > 1:
+                    progress.update(1)
                     continue
                 try:
                     self.download_dataset(path.parent)

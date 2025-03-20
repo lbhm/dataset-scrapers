@@ -8,6 +8,7 @@ import time
 from collections import Counter
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+from urllib.parse import unquote
 
 import cchardet
 import numpy as np
@@ -147,7 +148,8 @@ class HistogramCreator:
         # iterate through each file
         for file_record in records:
             try:
-                csv_file = path / file_record["@id"].replace("+", " ").replace("/", "_")
+                filename = unquote(file_record["@id"].replace("+", " ").replace("/", "_"))
+                csv_file = path / filename
                 encoding, separator = self.analyze_csv_file(csv_file)
                 df = pd.read_csv(
                     csv_file,
@@ -214,11 +216,9 @@ class HistogramCreator:
             return filename
         # search for earliest folder where paths diverge
         i = 0
-        while any(
-            p.relative_to(p.parts[i]) == path.relative_to(path.parts[i]) for p in same_names
-        ):
+        while all(p.parts[i] == path.parts[i] for p in same_names):
             i += 1
-        return str(path.relative_to(path.parts[i])).replace("/", "_")
+        return str(Path(*path.parts[i:])).replace("/", "_")
 
     def flatten_csv_folders(self, base_dir: Path) -> None:
         # remove .csv ending for folders

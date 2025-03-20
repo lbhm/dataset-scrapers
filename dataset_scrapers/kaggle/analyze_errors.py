@@ -11,7 +11,7 @@ def analyze_most_common(strings: list[str], n: int = 10) -> None:
 
 
 def main() -> None:
-    error_path = Path("/home/thinkemil/dataset-scrapers/dataset_scrapers/error_list.log")
+    error_path = Path("../error_list.log")
     column_errors: list[str] = []
     file_errors: list[str] = []
 
