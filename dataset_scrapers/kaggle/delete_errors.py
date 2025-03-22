@@ -3,7 +3,7 @@ from pathlib import Path
 
 
 def main() -> None:
-    error_path = Path("../error_list.log")
+    error_path = Path("/home/thinkemil/Downloads/error_list.log")
     fnf_paths: list[Path] = []
     # collect file not found paths
     with Path.open(error_path, "r") as f:
@@ -13,6 +13,7 @@ def main() -> None:
                 path = error.split(":")[-1]
                 fnf_paths.append(Path(path))
     # delete everything except croissant metadata
+    fnf_paths = list(set(fnf_paths))
     for dataset_path in fnf_paths:
         for item in dataset_path.rglob("*"):
             if item.name == "croissant_metadata.json":

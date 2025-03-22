@@ -134,7 +134,7 @@ class HistogramCreator:
         mode_header = "File" if mode == 0 else "Column"
         filename = self.error_dir / f"error_{error_id}.log"
         with Path.open(filename, "w") as f:
-            f.write(mode_header + str(type(e).__name__) + ";" + str(e) + ";" + str(path))
+            f.write(mode_header + str(type(e).__name__) + ";" + str(e).strip() + ";" + str(path))
 
     def process_dataset(self, path: Path) -> None:
         # get metadata
