@@ -3,7 +3,7 @@ from pathlib import Path
 
 
 def main() -> None:
-    error_path = Path("/home/thinkemil/Downloads/error_list.log")
+    error_path = Path("../error_list.log")
     fnf_paths: list[Path] = []
     # collect file not found paths
     with Path.open(error_path, "r") as f:
