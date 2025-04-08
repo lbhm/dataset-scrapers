@@ -8,8 +8,8 @@ import time
 from collections import Counter
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
-from urllib.parse import unquote
 
+# import os
 import cchardet
 import numpy as np
 import pandas as pd
@@ -136,20 +136,34 @@ class HistogramCreator:
         with Path.open(filename, "w") as f:
             f.write(mode_header + str(type(e).__name__) + ";" + str(e).strip() + ";" + str(path))
 
+    def get_file_paths(self, metadata: dict[str, Any]) -> list[Path]:
+        """Get all file paths from the metadata."""
+        paths = []
+        for file in metadata["distribution"]:
+            if "contentUrl" in file:
+                url: str = file["contentUrl"]
+                if url.endswith(".csv") or url.endswith(".tsv"):
+                    path = Path(file["contentUrl"])
+                    paths.append(path)
+        return paths
+
     def process_dataset(self, path: Path) -> None:
-        # get metadata
+        # open metadata file
         metadata_path = path / "croissant_metadata.json"
         with metadata_path.open(encoding="utf-8") as file:
             metadata: dict[str, Any] = json.load(file)
         records: list[dict[str, Any]] = metadata["recordSet"]
+        # get filepaths from distribution
+        paths = self.get_file_paths(metadata)
+        assert len(paths) == len(records), "Number of files and records do not match"
         # calculate usability
         score = self.calculate_usability(metadata)
         metadata["usability"] = score
         # iterate through each file
-        for file_record in records:
+        for i, file_record in enumerate(records):
             try:
-                filename = unquote(file_record["@id"].replace("+", " ").replace("/", "_"))
-                csv_file = path / filename
+                filepath = paths[i]
+                csv_file = path / filepath
                 encoding, separator = self.analyze_csv_file(csv_file)
                 df = pd.read_csv(
                     csv_file,
@@ -165,13 +179,13 @@ class HistogramCreator:
             # remove unnecessary spaces
             df.columns = df.columns.str.strip()
             # iterate through each column
-            for i, column in enumerate(file_record["field"]):
+            for j, column in enumerate(file_record["field"]):
                 try:
                     data_type = column["dataType"][0].rsplit(":", 1)[-1].lower()
                     column_name = column["name"]
                     # catch case where column has empty name
                     if column_name == "":
-                        column_name = f"Unnamed: {i}"
+                        column_name = f"Unnamed: {j}"
                     data = df[column_name].dropna()
 
                     if data_type in ["int", "integer", "float"]:
@@ -249,7 +263,7 @@ class HistogramCreator:
         for path in self.source_dir.rglob("croissant_metadata.json"):
             if len(list(path.parent.iterdir())) > 1:
                 dataset_paths.append(path.parent)
-                self.flatten_csv_folders(path.parent)
+                # self.flatten_csv_folders(path.parent)
         dataset_paths = dataset_paths[: min(self.max_count, len(dataset_paths))]
         n_datasets = len(dataset_paths)
 
