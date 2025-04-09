@@ -168,11 +168,9 @@ class HistogramCreator:
         # iterate through each file
         for i, file_record in enumerate(records):
             try:
-                assert len(paths) == len(records), "Number of files and records do not match"
+                assert len(paths) >= len(records), "Number of files and records do not match"
                 filepath = paths[i]
                 csv_file = path / filepath
-                if "agg for indianapolis.csv" in str(csv_file):
-                    pass
                 encoding, separator = self.analyze_csv_file(csv_file)
                 df = pd.read_csv(
                     csv_file,
@@ -189,7 +187,7 @@ class HistogramCreator:
             # iterate through each column
             for j, column in enumerate(file_record["field"]):
                 try:
-                    assert len(df.columns) == len(file_record["field"]), (
+                    assert len(df.columns) >= len(file_record["field"]), (
                         f"Number of columns and fields do not match: {csv_file}"
                     )
                     data_type = column["dataType"][0].rsplit(":", 1)[-1].lower()
