@@ -3,13 +3,15 @@ from __future__ import annotations
 import argparse
 import json
 import multiprocessing as mp
+
+# import os
 import sys
 import time
 from collections import Counter
+from operator import itemgetter
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-# import os
 import cchardet
 import numpy as np
 import pandas as pd
@@ -50,17 +52,22 @@ class HistogramCreator:
 
     def analyze_csv_file(self, path: Path) -> tuple[str, str]:
         """Analyze a CSV file and return its encoding and separator."""
-        possible_separators = [",", ";", "\t", "|"]
+        candidates = [",", ";", "\t", "|", ":"]
 
         with path.open("rb") as file:
             result = cchardet.detect(file.read())
-            encoding = result["encoding"]
+        encoding = result["encoding"]
 
         with path.open("r", encoding=encoding) as file:
-            sample = file.readline()
-            counts = Counter({sep: sample.count(sep) for sep in possible_separators})
-        separator = max(counts, key=lambda k: counts[k]) if counts else ","
-
+            lines = [file.readline().strip() for _ in range(2)]
+        counters = [Counter(line) for line in lines]
+        matches: dict[str, int] = {}
+        for sep in candidates:
+            count1 = counters[0].get(sep, 0)
+            count2 = counters[1].get(sep, 0)
+            if count1 == count2 and count1 > 0:
+                matches[sep] = count1
+        separator = max(matches.items(), key=itemgetter(1))[0] if matches else ","
         return encoding, separator
 
     def calculate_usability(self, metadata: dict[str, Any]) -> float:
@@ -164,6 +171,8 @@ class HistogramCreator:
             try:
                 filepath = paths[i]
                 csv_file = path / filepath
+                if "agg for indianapolis.csv" in str(csv_file):
+                    pass
                 encoding, separator = self.analyze_csv_file(csv_file)
                 df = pd.read_csv(
                     csv_file,
@@ -175,19 +184,16 @@ class HistogramCreator:
             except Exception as e:
                 self.handle_exception(path, e, 0)
                 continue
-
+            assert len(df.columns) == len(file_record["field"]), (
+                f"Number of columns and fields do not match: {csv_file}"
+            )
             # remove unnecessary spaces
             df.columns = df.columns.str.strip()
             # iterate through each column
             for j, column in enumerate(file_record["field"]):
                 try:
                     data_type = column["dataType"][0].rsplit(":", 1)[-1].lower()
-                    column_name = column["name"]
-                    # catch case where column has empty name
-                    if column_name == "":
-                        column_name = f"Unnamed: {j}"
-                    data = df[column_name].dropna()
-
+                    data = df.iloc[:, j].dropna()
                     if data_type in ["int", "integer", "float"]:
                         self.process_numerical(data, column)
                     elif data_type == "text":
