@@ -162,13 +162,13 @@ class HistogramCreator:
         records: list[dict[str, Any]] = metadata["recordSet"]
         # get filepaths from distribution
         paths = self.get_file_paths(metadata)
-        assert len(paths) == len(records), "Number of files and records do not match"
         # calculate usability
         score = self.calculate_usability(metadata)
         metadata["usability"] = score
         # iterate through each file
         for i, file_record in enumerate(records):
             try:
+                assert len(paths) == len(records), "Number of files and records do not match"
                 filepath = paths[i]
                 csv_file = path / filepath
                 if "agg for indianapolis.csv" in str(csv_file):
@@ -184,14 +184,14 @@ class HistogramCreator:
             except Exception as e:
                 self.handle_exception(path, e, 0)
                 continue
-            assert len(df.columns) == len(file_record["field"]), (
-                f"Number of columns and fields do not match: {csv_file}"
-            )
             # remove unnecessary spaces
             df.columns = df.columns.str.strip()
             # iterate through each column
             for j, column in enumerate(file_record["field"]):
                 try:
+                    assert len(df.columns) == len(file_record["field"]), (
+                        f"Number of columns and fields do not match: {csv_file}"
+                    )
                     data_type = column["dataType"][0].rsplit(":", 1)[-1].lower()
                     data = df.iloc[:, j].dropna()
                     if data_type in ["int", "integer", "float"]:
