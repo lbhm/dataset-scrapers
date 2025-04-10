@@ -9,6 +9,7 @@ import sys
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+from urllib.parse import unquote
 
 import cchardet
 import numpy as np
@@ -62,10 +63,10 @@ class HistogramCreator:
         encoding = result["encoding"]
 
         with path.open("r", encoding=encoding) as file:
-            first = file.readline()
+            first = file.readline().strip()
         separator = ","
         for sep in candidates:
-            n_elements = len(first.split(sep))
+            n_elements = len([s for s in first.split(sep) if s])
             if n_elements == n_columns:
                 separator = sep
 
@@ -127,7 +128,12 @@ class HistogramCreator:
 
     def process_date(self, data: Series, column: dict[str, Any]) -> None:
         # NOTE: Using mixed format is risky and can lead to false date parsing
-        data = pd.to_datetime(data, format="mixed", dayfirst=True)
+        try:
+            data = pd.to_datetime(data, format="mixed", dayfirst=True, utc=True)
+        except Exception:
+            # fallback to general text processing
+            self.process_text(data, column)
+            return
         min_date, max_date = data.min(), data.max()
         unique_dates = data.nunique()
         column["min_date"] = min_date.isoformat()
@@ -170,6 +176,11 @@ class HistogramCreator:
             try:
                 filepath = paths[i]
                 csv_file = path / filepath
+                if not csv_file.exists():
+                    # fallback to old method
+                    csv_file = path / unquote(
+                        file_record["@id"].replace("+", " ").replace("/", "_")
+                    )
                 encoding, separator = self.analyze_csv_file(csv_file, len(file_record["field"]))
                 df = pd.read_csv(
                     csv_file,
