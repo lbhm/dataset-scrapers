@@ -7,8 +7,6 @@ import multiprocessing as mp
 # import os
 import sys
 import time
-from collections import Counter
-from operator import itemgetter
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -50,24 +48,27 @@ class HistogramCreator:
         self.num_processes = workers
         self.error_dir.mkdir(parents=True, exist_ok=True)
 
-    def analyze_csv_file(self, path: Path) -> tuple[str, str]:
+    def analyze_csv_file(self, path: Path, n_columns: int) -> tuple[str, str]:
         """Analyze a CSV file and return its encoding and separator."""
-        candidates = [",", ";", "\t", "|", ":"]
+        candidates = [
+            ",",
+            ";",
+            "\t",
+            "|",
+        ]
 
         with path.open("rb") as file:
             result = cchardet.detect(file.read())
         encoding = result["encoding"]
 
         with path.open("r", encoding=encoding) as file:
-            lines = [file.readline().strip() for _ in range(2)]
-        counters = [Counter(line) for line in lines]
-        matches: dict[str, int] = {}
+            first = file.readline()
+        separator = ","
         for sep in candidates:
-            count1 = counters[0].get(sep, 0)
-            count2 = counters[1].get(sep, 0)
-            if count1 == count2 and count1 > 0:
-                matches[sep] = count1
-        separator = max(matches.items(), key=itemgetter(1))[0] if matches else ","
+            n_elements = len(first.split(sep))
+            if n_elements == n_columns:
+                separator = sep
+
         return encoding, separator
 
     def calculate_usability(self, metadata: dict[str, Any]) -> float:
@@ -160,7 +161,6 @@ class HistogramCreator:
         with metadata_path.open(encoding="utf-8") as file:
             metadata: dict[str, Any] = json.load(file)
         records: list[dict[str, Any]] = metadata["recordSet"]
-        # get filepaths from distribution
         paths = self.get_file_paths(metadata)
         # calculate usability
         score = self.calculate_usability(metadata)
@@ -168,16 +168,18 @@ class HistogramCreator:
         # iterate through each file
         for i, file_record in enumerate(records):
             try:
-                assert len(paths) >= len(records), "Number of files and records do not match"
                 filepath = paths[i]
                 csv_file = path / filepath
-                encoding, separator = self.analyze_csv_file(csv_file)
+                encoding, separator = self.analyze_csv_file(csv_file, len(file_record["field"]))
                 df = pd.read_csv(
                     csv_file,
                     encoding=encoding,
                     sep=separator,
                     engine="python",
                     on_bad_lines="skip",
+                )
+                assert len(df.columns) >= len(file_record["field"]), (
+                    f"Number of columns and fields do not match: {csv_file}"
                 )
             except Exception as e:
                 self.handle_exception(path, e, 0)
@@ -187,9 +189,6 @@ class HistogramCreator:
             # iterate through each column
             for j, column in enumerate(file_record["field"]):
                 try:
-                    assert len(df.columns) >= len(file_record["field"]), (
-                        f"Number of columns and fields do not match: {csv_file}"
-                    )
                     data_type = column["dataType"][0].rsplit(":", 1)[-1].lower()
                     data = df.iloc[:, j].dropna()
                     if data_type in ["int", "integer", "float"]:
