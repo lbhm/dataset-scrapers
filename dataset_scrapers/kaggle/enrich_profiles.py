@@ -3,8 +3,6 @@ from __future__ import annotations
 import argparse
 import json
 import multiprocessing as mp
-
-# import os
 import sys
 import time
 from pathlib import Path
@@ -19,9 +17,6 @@ from tqdm import tqdm
 
 if TYPE_CHECKING:
     from multiprocessing.sharedctypes import Synchronized
-
-# os.chdir(os.path.dirname(os.path.abspath(__file__)))
-
 
 error_count: Synchronized[int]
 
@@ -132,6 +127,7 @@ class HistogramCreator:
             data = pd.to_datetime(data, format="mixed", dayfirst=True, utc=True)
         except Exception:
             # fallback to general text processing
+            column["dataType"] = ["sc:Text"]
             self.process_text(data, column)
             return
         min_date, max_date = data.min(), data.max()
@@ -248,36 +244,11 @@ class HistogramCreator:
             i += 1
         return str(Path(*path.parts[i:])).replace("/", "_")
 
-    def flatten_csv_folders(self, base_dir: Path) -> None:
-        # remove .csv ending for folders
-        for path in base_dir.rglob("*.csv"):
-            if path.is_dir():
-                path.rename(path.with_name(path.stem))
-
-        # create a list of paths to be renamed
-        rename_list: list[tuple[Path, Path]] = []
-        for path in base_dir.rglob("*.csv"):
-            if not path.is_file():
-                continue
-            target_path = base_dir / self.calculate_kaggle_path(path, base_dir)
-            if path != target_path:
-                rename_list.append((path, target_path))
-        # rename afterwards to avoid problems
-        for src, target in rename_list:
-            src.rename(target)
-        # delete empty directories
-        for folder in sorted(
-            base_dir.rglob("*"), key=lambda p: -len(p.parts)
-        ):  # start from the bottom
-            if folder.is_dir() and not any(folder.iterdir()):
-                folder.rmdir()
-
     def start(self) -> None:
         dataset_paths: list[Path] = []
         for path in self.source_dir.rglob("croissant_metadata.json"):
             if len(list(path.parent.iterdir())) > 1:
                 dataset_paths.append(path.parent)
-                # self.flatten_csv_folders(path.parent)
         dataset_paths = dataset_paths[: min(self.max_count, len(dataset_paths))]
         n_datasets = len(dataset_paths)
 
