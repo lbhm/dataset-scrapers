@@ -15,7 +15,7 @@ class TaskQueue(queue.Queue[tuple[Callable[..., Any], tuple[Any, ...], dict[str,
     def __del__(self) -> None:
         self.stop_workers()
 
-    def add_task(self, task: Callable[..., Any], *args: Any, **kwargs: Any) -> None:
+    def add_task(self, task: Callable[..., Any], *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
         self.put((task, args, kwargs))
 
     def start_workers(self) -> None:

@@ -157,7 +157,7 @@ class HistogramCreator:
         for file in metadata["distribution"]:
             if "contentUrl" in file:
                 url: str = file["contentUrl"]
-                if url.endswith(".csv") or url.endswith(".tsv"):
+                if url.endswith((".csv", ".tsv")):
                     path = Path(file["contentUrl"])
                     paths.append(path)
         return paths
@@ -188,26 +188,26 @@ class HistogramCreator:
                         file_record["@id"].replace("+", " ").replace("/", "_")
                     )
                 encoding, separator = self.analyze_csv_file(csv_file, len(file_record["field"]))
-                df = pd.read_csv(
+                table = pd.read_csv(
                     csv_file,
                     encoding=encoding,
                     sep=separator,
                     engine="python",
                     on_bad_lines="skip",
                 )
-                assert len(df.columns) >= len(file_record["field"]), (
+                assert len(table.columns) >= len(file_record["field"]), (
                     f"Number of columns and fields do not match: {csv_file}"
                 )
             except Exception as e:
                 self.handle_exception(path, e, 0)
                 continue
             # remove unnecessary spaces
-            df.columns = df.columns.str.strip()
+            table.columns = table.columns.str.strip()
             # iterate through each column
             for j, column in enumerate(file_record["field"]):
                 try:
                     data_type = column["dataType"][0].rsplit(":", 1)[-1].lower()
-                    data = df.iloc[:, j].dropna()
+                    data = table.iloc[:, j].dropna()
                     if data_type in ["int", "integer", "float"]:
                         self.process_numerical(data, column)
                     elif data_type == "text":
@@ -255,10 +255,11 @@ class HistogramCreator:
         return str(Path(*path.parts[i:])).replace("/", "_")
 
     def start(self) -> None:
-        dataset_paths: list[Path] = []
-        for path in self.source_dir.rglob("croissant_metadata.json"):
-            if len(list(path.parent.iterdir())) > 1:
-                dataset_paths.append(path.parent)
+        dataset_paths = [
+            path.parent
+            for path in self.source_dir.rglob("croissant_metadata.json")
+            if len(list(path.parent.iterdir())) > 1
+        ]
         dataset_paths = dataset_paths[: min(self.max_count, len(dataset_paths))]
         n_datasets = len(dataset_paths)
 
