@@ -141,7 +141,12 @@ class HistogramCreator:
         with error_count.get_lock():
             error_id = error_count.value
             error_count.value += 1
-        mode_header = "File" if mode == 0 else "Column"
+        if mode == 0:
+            mode_header = "File"
+        elif mode == 1:
+            mode_header = "Column"
+        else:
+            mode_header = "Dataset"
         filename = self.error_dir / f"error_{error_id}.log"
         with Path.open(filename, "w") as f:
             f.write(mode_header + str(type(e).__name__) + ";" + str(e).strip() + ";" + str(path))
@@ -157,13 +162,18 @@ class HistogramCreator:
                     paths.append(path)
         return paths
 
-    def process_dataset(self, path: Path) -> None:
+    def process_dataset(self, path: Path) -> None:  # noqa: C901
         # open metadata file
         metadata_path = path / "croissant_metadata.json"
         with metadata_path.open(encoding="utf-8") as file:
             metadata: dict[str, Any] = json.load(file)
         records: list[dict[str, Any]] = metadata["recordSet"]
         paths = self.get_file_paths(metadata)
+        try:
+            assert len(paths) == len(records), "Number of csv paths and records do not match"
+        except AssertionError as e:
+            self.handle_exception(path, e, 2)
+            return
         # calculate usability
         score = self.calculate_usability(metadata)
         metadata["usability"] = score
