@@ -12,8 +12,8 @@
 - If there is a `recordSet`, we extend the fields of the records depending on the value of the field `"dataType"`.
   - Numeric fields: New key `"histogram"` containing the key `"bins"` and the key `"densities"` each with a list of numbers and new key `"statistics"` with the keys `"count"`, `"mean"`, `"std"`, `"min"`, `"25%"`, `"50%"`, `"75%"` and `"max"` each with a numerical value.
   - Text fields: New key `"n_unique"` with a number and `"most_common"` with 10 keys and a number each referring to the frequency of the key.
-  - Boolean fields: A key `count` containing two keys which count the posiive and negative occurrences (values are integers).
-  - Data fields: The keys `min_date`, `max_date` with a string in the ISO 8601 format as a value each and the key `unique_dates` with an integer as a value.
+  - Boolean fields: A key `count` containing two keys which count the positive and negative occurrences (values are integers).
+  - Data fields: The keys `min_date` and `max_date` with a date string in ISO 8601 format as their value and the key `unique_dates` with an integer value.
 - Usability score: The key `usability` with a numeric value between 0 and 1 in the top level hierarchy, which is calculated as follows:
   - 1 point for having a license.
   - 1 point for having a subtitle.
@@ -21,4 +21,4 @@
   - 1 point for having tags.
   - 1 point for having at least one file description.
   - 1 point for having at least one column description.
-  - after collecting the points, we divide by the total achievable points (6).
+  - After collecting all points, we normalize the score by dividing by the number of achievable points (6).
