@@ -41,7 +41,7 @@ Available arguments:
 
 ## 4. Create histograms
 
-Corresponding script: `kaggle/create_histograms.py`
+Corresponding script: `kaggle/enrich_profiles.py`
 
 Available arguments:
 
