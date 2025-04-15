@@ -39,9 +39,9 @@ Available arguments:
 - path `--path` (string): Path to croissant files with metadata. The datasets will be downloaded into the same directories. Defaults to `../kaggle_metadata`.
 - start index `-i` or `--start-index` (integer): Used to continue the download from a certain point. Defaults to 0.
 
-## 4. Create histograms
+## 4. Enrich Dataset Profiles
 
-Corresponding script: `kaggle/create_histograms.py`
+Corresponding script: `kaggle/enrich_profiles.py`
 
 Available arguments:
 
