@@ -5,6 +5,7 @@ import json
 import multiprocessing as mp
 import sys
 import time
+from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from urllib.parse import unquote
@@ -19,6 +20,12 @@ if TYPE_CHECKING:
     from multiprocessing.sharedctypes import Synchronized
 
 error_count: Synchronized[int]
+
+
+class ErrorType(Enum):
+    File = 0
+    Column = 1
+    Dataset = 2
 
 
 def init_workers(counter: Synchronized[int]) -> None:
@@ -139,12 +146,7 @@ class HistogramCreator:
         with error_count.get_lock():
             error_id = error_count.value
             error_count.value += 1
-        if mode == 0:
-            mode_header = "File"
-        elif mode == 1:
-            mode_header = "Column"
-        else:
-            mode_header = "Dataset"
+        mode_header = ErrorType(mode).name
         filename = self.error_dir / f"error_{error_id}.log"
         with Path.open(filename, "w") as f:
             f.write(
