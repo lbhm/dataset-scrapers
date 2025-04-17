@@ -10,8 +10,6 @@ import tqdm
 from kaggle.api.kaggle_api_extended import KaggleApi
 from tqdm.contrib import DummyTqdmFile
 
-# os.chdir(os.path.dirname(os.path.abspath(__file__)))
-
 
 @contextlib.contextmanager
 def redirect_to_tqdm() -> Generator[TextIO]:

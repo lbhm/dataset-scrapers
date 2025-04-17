@@ -32,13 +32,14 @@ class HistogramCreator:
         self,
         source_dir: Path,
         target_dir: Path,
+        error_dir: Path,
         max_count: int,
         bin_count: int = 10,
         workers: int = mp.cpu_count(),
     ) -> None:
         self.source_dir = source_dir
         self.target_dir = target_dir
-        self.error_dir = Path("../errors")
+        self.error_dir = error_dir
         self.max_count = max_count
         self.bin_count = bin_count
         self.num_processes = workers
@@ -46,12 +47,7 @@ class HistogramCreator:
 
     def analyze_csv_file(self, path: Path, n_columns: int) -> tuple[str, str]:
         """Analyze a CSV file and return its encoding and separator."""
-        candidates = [
-            ",",
-            ";",
-            "\t",
-            "|",
-        ]
+        candidates = [",", ";", "\t", "|"]
 
         with path.open("rb") as file:
             result = cchardet.detect(file.read())
@@ -103,7 +99,9 @@ class HistogramCreator:
                 mapping = {string: idx for idx, string in enumerate(data.unique())}
                 data = Series([mapping[item] for item in data])
         # create histogram
-        densities, bins = np.histogram(data, density=True, bins=self.bin_count)
+        densities, bins = np.histogram(
+            data, density=True, bins=min(data.nunique(), self.bin_count)
+        )
         # save hist
         column["histogram"] = {
             "bins": list(bins),
@@ -149,7 +147,9 @@ class HistogramCreator:
             mode_header = "Dataset"
         filename = self.error_dir / f"error_{error_id}.log"
         with Path.open(filename, "w") as f:
-            f.write(mode_header + str(type(e).__name__) + ";" + str(e).strip() + ";" + str(path))
+            f.write(
+                mode_header + ";" + str(type(e).__name__) + ";" + str(e).strip() + ";" + str(path)
+            )
 
     def get_file_paths(self, metadata: dict[str, Any]) -> list[Path]:
         """Get all file paths from the metadata."""
@@ -288,6 +288,12 @@ def parse_args() -> argparse.Namespace:
         help="path to result dir (default %(default)s)",
     )
     parser.add_argument(
+        "--error-dir",
+        type=str,
+        default="../errors",
+        help="path to error dir (default %(default)s)",
+    )
+    parser.add_argument(
         "--max-datasets",
         type=int,
         default=10**1000,
@@ -315,6 +321,7 @@ def main() -> None:
     args = parse_args()
     result_dir = Path(args.result)
     source_dir = Path(args.source)
+    error_dir = Path(args.error_dir)
 
     if not source_dir.exists():
         print("This program requires a directory with croissant metadata to work!")
@@ -324,6 +331,7 @@ def main() -> None:
     creator = HistogramCreator(
         source_dir=source_dir,
         target_dir=result_dir,
+        error_dir=error_dir,
         max_count=args.max_datasets,
         bin_count=args.bin_count,
         workers=args.workers,
