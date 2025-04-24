@@ -47,5 +47,14 @@ Available arguments:
 
 - source dir `--source` (string): Path to metadata with datasets. Defaults to `../kaggle_metadata`.
 - result dir `--result` (string): Desired path to the directory where the metadata enriched with histograms will be collected. Defaults to `../croissant`.
+- error dir `--error-dir` (string): Desired path to the directory where the errors that may occur will be collected. Defaults to `../errors`.
 - max datasets `--max-datasets` (integer): Maximum number of datasets to be processed. Defaults to all datasets available.
 - bin count `--bin-count` (integer): Number of bins used for every histogram. Defaults to 10.
+- workers `-w` or `--workers` (integer): Number of processes that will be used to enrich the croissant metadata in parallel. Defaults to the number of CPUs in the system.
+
+## 5. Analyze Errors (optional)
+Corresponding script: `kaggle/analyze_errors.py`
+
+Available arguments:
+
+- error path `--error-path` (string): Path to the `error_list.log` file created by the `enrich_profiles.py` script. Defaults to `../error_list.log`.
