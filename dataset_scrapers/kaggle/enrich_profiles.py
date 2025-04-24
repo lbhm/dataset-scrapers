@@ -5,9 +5,10 @@ import json
 import multiprocessing as mp
 import sys
 import time
-from collections import Counter
+from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+from urllib.parse import unquote
 
 import cchardet
 import numpy as np
@@ -21,6 +22,12 @@ if TYPE_CHECKING:
 error_count: Synchronized[int]
 
 
+class ErrorType(Enum):
+    File = 0
+    Column = 1
+    Dataset = 2
+
+
 def init_workers(counter: Synchronized[int]) -> None:
     """Initialize each worker with a global synchronized counter."""
     global error_count  # noqa: PLW0603
@@ -32,28 +39,34 @@ class HistogramCreator:
         self,
         source_dir: Path,
         target_dir: Path,
+        error_dir: Path,
         max_count: int,
         bin_count: int = 10,
         workers: int = mp.cpu_count(),
     ) -> None:
         self.source_dir = source_dir
         self.target_dir = target_dir
+        self.error_dir = error_dir
         self.max_count = max_count
         self.bin_count = bin_count
         self.num_processes = workers
+        self.error_dir.mkdir(parents=True, exist_ok=True)
 
-    def analyze_csv_file(self, path: Path) -> tuple[str, str]:
+    def analyze_csv_file(self, path: Path, n_columns: int) -> tuple[str, str]:
         """Analyze a CSV file and return its encoding and separator."""
-        possible_separators = [",", ";", "\t", "|"]
+        candidates = [",", ";", "\t", "|"]
 
         with path.open("rb") as file:
             result = cchardet.detect(file.read())
-            encoding = result["encoding"]
+        encoding = result["encoding"]
 
         with path.open("r", encoding=encoding) as file:
-            sample = file.readline()
-            counts = Counter({sep: sample.count(sep) for sep in possible_separators})
-        separator = max(counts, key=lambda k: counts[k]) if counts else ","
+            first = file.readline().strip()
+        separator = ","
+        for sep in candidates:
+            n_elements = len([s for s in first.split(sep) if s])
+            if n_elements == n_columns:
+                separator = sep
 
         return encoding, separator
 
@@ -93,7 +106,9 @@ class HistogramCreator:
                 mapping = {string: idx for idx, string in enumerate(data.unique())}
                 data = Series([mapping[item] for item in data])
         # create histogram
-        densities, bins = np.histogram(data, density=True, bins=self.bin_count)
+        densities, bins = np.histogram(
+            data, density=True, bins=min(data.nunique(), self.bin_count)
+        )
         # save hist
         column["histogram"] = {
             "bins": list(bins),
@@ -113,27 +128,68 @@ class HistogramCreator:
 
     def process_date(self, data: Series, column: dict[str, Any]) -> None:
         # NOTE: Using mixed format is risky and can lead to false date parsing
-        data = pd.to_datetime(data, format="mixed", dayfirst=True)
+        try:
+            data = pd.to_datetime(data, format="mixed", dayfirst=True, utc=True)
+        except Exception:
+            # fallback to general text processing
+            column["dataType"] = ["sc:Text"]
+            self.process_text(data, column)
+            return
         min_date, max_date = data.min(), data.max()
         unique_dates = data.nunique()
         column["min_date"] = min_date.isoformat()
         column["max_date"] = max_date.isoformat()
         column["unique_dates"] = unique_dates
 
-    def process_dataset(self, path: Path) -> None:
+    def handle_exception(self, path: Path, e: Exception, mode: int) -> None:
+        print(f"Error occurred with {path}: {e}", flush=True)
+        with error_count.get_lock():
+            error_id = error_count.value
+            error_count.value += 1
+        mode_header = ErrorType(mode).name
+        filename = self.error_dir / f"error_{error_id}.log"
+        with Path.open(filename, "w") as f:
+            f.write(
+                mode_header + ";" + str(type(e).__name__) + ";" + str(e).strip() + ";" + str(path)
+            )
+
+    def get_file_paths(self, metadata: dict[str, Any]) -> list[Path]:
+        """Get all file paths from the metadata."""
+        paths = []
+        for file in metadata["distribution"]:
+            if "contentUrl" in file:
+                url: str = file["contentUrl"]
+                if url.endswith((".csv", ".tsv")):
+                    path = Path(file["contentUrl"])
+                    paths.append(path)
+        return paths
+
+    def process_dataset(self, path: Path) -> None:  # noqa: C901
+        # open metadata file
+        metadata_path = path / "croissant_metadata.json"
+        with metadata_path.open(encoding="utf-8") as file:
+            metadata: dict[str, Any] = json.load(file)
+        records: list[dict[str, Any]] = metadata["recordSet"]
+        paths = self.get_file_paths(metadata)
         try:
-            # get metadata
-            metadata_path = path / "croissant_metadata.json"
-            with metadata_path.open(encoding="utf-8") as file:
-                metadata: dict[str, Any] = json.load(file)
-            records: list[dict[str, Any]] = metadata["recordSet"]
-            # calculate usability
-            score = self.calculate_usability(metadata)
-            metadata["usability"] = score
-            # iterate through each file
-            for file_record in records:
-                csv_file = path / file_record["@id"].replace("+", " ").replace("/", "_")
-                encoding, separator = self.analyze_csv_file(csv_file)
+            assert len(paths) == len(records), "Number of csv paths and records do not match"
+        except AssertionError as e:
+            self.handle_exception(path, e, 2)
+            return
+        # calculate usability
+        score = self.calculate_usability(metadata)
+        metadata["usability"] = score
+        # iterate through each file
+        for i, file_record in enumerate(records):
+            try:
+                filepath = paths[i]
+                csv_file = path / filepath
+                if not csv_file.exists():
+                    # fallback to old method
+                    csv_file = path / unquote(
+                        file_record["@id"].replace("+", " ").replace("/", "_")
+                    )
+                encoding, separator = self.analyze_csv_file(csv_file, len(file_record["field"]))
                 table = pd.read_csv(
                     csv_file,
                     encoding=encoding,
@@ -141,18 +197,19 @@ class HistogramCreator:
                     engine="python",
                     on_bad_lines="skip",
                 )
-
-                # remove unnecessary spaces
-                table.columns = table.columns.str.strip()
-                # iterate through each column
-                for i, column in enumerate(file_record["field"]):
+                assert len(table.columns) >= len(file_record["field"]), (
+                    f"Number of columns and fields do not match: {csv_file}"
+                )
+            except Exception as e:
+                self.handle_exception(path, e, 0)
+                continue
+            # remove unnecessary spaces
+            table.columns = table.columns.str.strip()
+            # iterate through each column
+            for j, column in enumerate(file_record["field"]):
+                try:
                     data_type = column["dataType"][0].rsplit(":", 1)[-1].lower()
-                    column_name = column["name"]
-                    # catch case where column has empty name
-                    if column_name == "":
-                        column_name = f"Unnamed: {i}"
-                    data = table[column_name].dropna()
-
+                    data = table.iloc[:, j].dropna()
                     if data_type in ["int", "integer", "float"]:
                         self.process_numerical(data, column)
                     elif data_type == "text":
@@ -161,15 +218,43 @@ class HistogramCreator:
                         self.process_bool(data, column)
                     elif data_type == "date":
                         self.process_date(data, column)
+                except Exception as e:
+                    self.handle_exception(path, e, 1)
+                    column["error"] = str(e)
+                    continue
 
-            # write metadata to target_dir
-            file_name = "/".join(str(path).split("/")[-2:]).replace("/", "_") + ".json"
-            with (self.target_dir / file_name).open("w") as file:
-                json.dump(metadata, file, indent=4, ensure_ascii=False)
-        except Exception as e:
-            print(f"Error occurred with {path}: {e}", flush=True)
-            with error_count.get_lock():
-                error_count.value += 1
+        # write metadata to target_dir
+        file_name = "/".join(str(path).split("/")[-2:]).replace("/", "_") + ".json"
+        with (self.target_dir / file_name).open("w") as file:
+            json.dump(metadata, file, indent=4, ensure_ascii=False)
+
+    def merge_errors(self) -> None:
+        lines: list[str] = []
+        for error_file in self.error_dir.iterdir():
+            if error_file.is_file():
+                with error_file.open("r", encoding="utf-8") as f:
+                    lines.extend(f.readlines())
+        lines = [line.replace("\n", "") for line in lines]
+        lines.sort()
+        output_file = Path("../error_list.log")
+        output_file.write_text("\n".join(lines), encoding="utf-8")
+
+    def calculate_kaggle_path(self, path: Path, base_dir: Path) -> str:
+        path = path.relative_to(base_dir.parent)
+        filename = path.name
+        same_names: list[Path] = []
+        for p in base_dir.rglob(filename):
+            p_relative = p.relative_to(base_dir.parent)
+            if p_relative != path:
+                same_names.append(p_relative)
+        # no conflicts with other paths, return just the filename
+        if len(same_names) == 0:
+            return filename
+        # search for earliest folder where paths diverge
+        i = 0
+        while all(p.parts[i] == path.parts[i] for p in same_names):
+            i += 1
+        return str(Path(*path.parts[i:])).replace("/", "_")
 
     def start(self) -> None:
         dataset_paths = [
@@ -186,10 +271,8 @@ class HistogramCreator:
         ) as pool:
             list(tqdm(pool.imap_unordered(self.process_dataset, dataset_paths), total=n_datasets))
 
-        print(
-            f"{n_datasets - error_count.value} of {n_datasets} datasets processed "
-            f"({round((n_datasets - error_count.value) / n_datasets * 100)}%)"
-        )
+        self.merge_errors()
+        print(f"{error_count.value} errors occurred while processing {n_datasets} datasets")
 
 
 def parse_args() -> argparse.Namespace:
@@ -205,6 +288,12 @@ def parse_args() -> argparse.Namespace:
         type=str,
         default="../croissant",
         help="path to result dir (default %(default)s)",
+    )
+    parser.add_argument(
+        "--error-dir",
+        type=str,
+        default="../errors",
+        help="path to error dir (default %(default)s)",
     )
     parser.add_argument(
         "--max-datasets",
@@ -234,6 +323,7 @@ def main() -> None:
     args = parse_args()
     result_dir = Path(args.result)
     source_dir = Path(args.source)
+    error_dir = Path(args.error_dir)
 
     if not source_dir.exists():
         print("This program requires a directory with croissant metadata to work!")
@@ -243,6 +333,7 @@ def main() -> None:
     creator = HistogramCreator(
         source_dir=source_dir,
         target_dir=result_dir,
+        error_dir=error_dir,
         max_count=args.max_datasets,
         bin_count=args.bin_count,
         workers=args.workers,

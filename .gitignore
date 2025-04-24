@@ -164,7 +164,7 @@ cython_debug/
 
 # Data directories
 *plots/
-*kaggle_metadata/
+*kaggle_metadata*/
 *data/
 *croissant/
 croissant.zip
