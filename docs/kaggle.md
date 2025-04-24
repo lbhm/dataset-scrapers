@@ -49,3 +49,10 @@ Available arguments:
 - result dir `--result` (string): Desired path to the directory where the metadata enriched with histograms will be collected. Defaults to `../croissant`.
 - max datasets `--max-datasets` (integer): Maximum number of datasets to be processed. Defaults to all datasets available.
 - bin count `--bin-count` (integer): Number of bins used for every histogram. Defaults to 10.
+
+## 5. Analyze Errors (optional)
+Corresponding script: `kaggle/analyze_errors.py`
+
+Available arguments:
+
+- error path `--error-path` (string): Path to the `error_list.log` file created by the `enrich_profiles.py` script. Defaults to `../error_list.log`.
