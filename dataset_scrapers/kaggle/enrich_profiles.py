@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import multiprocessing as mp
 import sys
 import time
@@ -114,13 +115,26 @@ class HistogramCreator:
             "bins": list(bins),
             "densities": list(densities / np.sum(densities)),
         }
-        column["statistics"] = data.describe().to_dict()
+        statistics = data.describe().to_dict()
+        for key, value in statistics.items():
+            if pd.isna(value) or (isinstance(value, float) and math.isnan(value)):
+                statistics[key] = "NaN"
+            if key == "25%":
+                statistics["firstQuartile"] = value
+                statistics.pop(key)
+            elif key == "50%":
+                statistics["secondQuartile"] = value
+                statistics.pop(key)
+            elif key == "75%":
+                statistics["thirdQuartile"] = value
+                statistics.pop(key)
+        column["statistics"] = statistics
 
     def process_text(self, data: Series, column: dict[str, Any]) -> None:
         n_unique = data.nunique()
         top_10 = data.value_counts().head(10).to_dict()
-        column["n_unique"] = n_unique
-        column["most_common"] = top_10
+        column["nUnique"] = n_unique
+        column["mostCommon"] = top_10
 
     def process_bool(self, data: Series, column: dict[str, Any]) -> None:
         counts = data.value_counts().to_dict()
@@ -137,9 +151,9 @@ class HistogramCreator:
             return
         min_date, max_date = data.min(), data.max()
         unique_dates = data.nunique()
-        column["min_date"] = min_date.isoformat()
-        column["max_date"] = max_date.isoformat()
-        column["unique_dates"] = unique_dates
+        column["minDate"] = min_date.isoformat()
+        column["maxDate"] = max_date.isoformat()
+        column["uniqueDates"] = unique_dates
 
     def handle_exception(self, path: Path, e: Exception, mode: int) -> None:
         print(f"Error occurred with {path}: {e}", flush=True)
