@@ -116,7 +116,8 @@ class HistogramCreator:
             "densities": list(densities / np.sum(densities)),
         }
         statistics = data.describe().to_dict()
-        for key, value in statistics.items():
+        for key in list(statistics.keys()):
+            value = statistics[key]
             if pd.isna(value) or (isinstance(value, float) and math.isnan(value)):
                 statistics[key] = "NaN"
             if key == "25%":
