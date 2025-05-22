@@ -240,8 +240,13 @@ class HistogramCreator:
 
         # write metadata to target_dir
         file_name = "/".join(str(path).split("/")[-2:]).replace("/", "_") + ".json"
-        with (self.target_dir / file_name).open("w") as file:
-            json.dump(metadata, file, indent=4, ensure_ascii=False)
+        try:
+            with (self.target_dir / file_name).open("w") as file:
+                json.dump(metadata, file, indent=4, ensure_ascii=False, allow_nan=False)
+        except Exception as e:
+            self.handle_exception(path, e, 0)
+            print("NaN error detected with metadata: ", metadata)
+            return
 
     def merge_errors(self) -> None:
         lines: list[str] = []
