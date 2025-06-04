@@ -245,7 +245,7 @@ class HistogramCreator:
                 json.dump(metadata, file, indent=4, ensure_ascii=False, allow_nan=False)
         except Exception as e:
             self.handle_exception(path, e, 0)
-            print("NaN error detected with metadata: ", metadata)
+            print("NaN error detected with metadata: ", metadata_path)
             return
 
     def merge_errors(self) -> None:
