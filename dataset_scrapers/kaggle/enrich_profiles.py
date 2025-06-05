@@ -71,6 +71,21 @@ class HistogramCreator:
 
         return encoding, separator
 
+    def sanitize_json(self, obj: Any) -> Any:  # noqa: ANN401
+        if isinstance(obj, float):
+            if math.isnan(obj) or pd.isna(obj):
+                return "NaN"
+            if math.isinf(obj):
+                return None
+            return obj
+        if isinstance(obj, dict):
+            return {k: self.sanitize_json(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [self.sanitize_json(item) for item in obj]
+        if isinstance(obj, tuple):
+            return tuple(self.sanitize_json(item) for item in obj)
+        return obj
+
     def calculate_usability(self, metadata: dict[str, Any]) -> float:
         score = 0
         max_score = 6
@@ -118,8 +133,6 @@ class HistogramCreator:
         statistics = data.describe().to_dict()
         for key in list(statistics.keys()):
             value = statistics[key]
-            if pd.isna(value) or (isinstance(value, float) and math.isnan(value)):
-                statistics[key] = "NaN"
             if key == "25%":
                 statistics["firstQuartile"] = value
                 statistics.pop(key)
@@ -240,6 +253,7 @@ class HistogramCreator:
 
         # write metadata to target_dir
         file_name = "/".join(str(path).split("/")[-2:]).replace("/", "_") + ".json"
+        metadata = self.sanitize_json(metadata)
         try:
             with (self.target_dir / file_name).open("w") as file:
                 json.dump(metadata, file, indent=4, ensure_ascii=False, allow_nan=False)
