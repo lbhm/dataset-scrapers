@@ -79,6 +79,9 @@ class HistogramCreator:
                 return None
             return obj
         if isinstance(obj, dict):
+            # check for infs in keys
+            if any(isinstance(k, float) and (math.isinf(k) or math.isnan(k)) for k in obj):
+                return {}
             return {k: self.sanitize_json(v) for k, v in obj.items()}
         if isinstance(obj, list):
             return [self.sanitize_json(item) for item in obj]
