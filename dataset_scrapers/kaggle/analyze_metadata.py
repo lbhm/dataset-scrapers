@@ -89,6 +89,7 @@ class MetadataAnalyzer:
     def plot_csv_file_count(self, max_files: int = 100) -> None:
         total = len(self.csv_file_count)
         tabular = len([count for count in self.csv_file_count if count > 0])
+        print(sum(self.csv_file_count), "CSV files in total,")
         csv_file_count = [count for count in self.csv_file_count if count < max_files]
         plt.figure()
         plt.hist(csv_file_count, bins=500, color="blue", edgecolor="black", alpha=0.7)
@@ -159,7 +160,7 @@ class MetadataAnalyzer:
         print(f"Total size of metadata with recordset key: {round(value, 2)} {unit}")
 
     def start(self) -> None:
-        for path in self.source_dir.rglob("croissant_metadata.json"):
+        for path in self.source_dir.rglob("*"):
             try:
                 self.analyze_metadata(path)
             except Exception as e:

@@ -22,6 +22,8 @@ if TYPE_CHECKING:
 
 error_count: Synchronized[int]
 
+BASE_DIR = Path(__file__).parent
+
 
 class ErrorType(Enum):
     File = 0
@@ -317,19 +319,19 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--source",
         type=str,
-        default="../kaggle_metadata",
+        default=(BASE_DIR / "../kaggle_metadata"),
         help="path to metadata (default %(default)s)",
     )
     parser.add_argument(
         "--result",
         type=str,
-        default="../croissant",
+        default=(BASE_DIR / "../croissant"),
         help="path to result dir (default %(default)s)",
     )
     parser.add_argument(
         "--error-dir",
         type=str,
-        default="../errors",
+        default=(BASE_DIR / "../errors"),
         help="path to error dir (default %(default)s)",
     )
     parser.add_argument(
