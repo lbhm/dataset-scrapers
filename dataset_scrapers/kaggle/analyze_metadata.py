@@ -89,6 +89,7 @@ class MetadataAnalyzer:
     def plot_csv_file_count(self, max_files: int = 100) -> None:
         total = len(self.csv_file_count)
         tabular = len([count for count in self.csv_file_count if count > 0])
+        print(sum(self.csv_file_count), "CSV files in total,")
         csv_file_count = [count for count in self.csv_file_count if count < max_files]
         plt.figure()
         plt.hist(csv_file_count, bins=500, color="blue", edgecolor="black", alpha=0.7)
@@ -152,7 +153,10 @@ class MetadataAnalyzer:
             total_columns += count
             if data_type.lower() in ["int", "integer", "float"]:
                 numeric_columns += count
-        print(f"Total columns: {total_columns}, Numeric columns: {numeric_columns}")
+        print(
+            f"Total columns: {total_columns}, Numeric columns: {numeric_columns}"
+            f"(without max_size filter)"
+        )
 
     def print_metadata_size(self) -> None:
         value, unit = self.convert_kb_to_highest_prefix(self.metadata_total_size_wrecordset)
