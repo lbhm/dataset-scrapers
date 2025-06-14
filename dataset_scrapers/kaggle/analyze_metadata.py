@@ -163,7 +163,7 @@ class MetadataAnalyzer:
         print(f"Total size of metadata with recordset key: {round(value, 2)} {unit}")
 
     def start(self) -> None:
-        for path in self.source_dir.rglob("*"):
+        for path in self.source_dir.rglob("croissant_metadata.json"):
             try:
                 self.analyze_metadata(path)
             except Exception as e:
