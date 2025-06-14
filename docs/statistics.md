@@ -1,27 +1,27 @@
-# Scraping Statistics (as of April 11, 2025)
+# Scraping Statistics (as of June 14, 2025)
 
 ## Kaggle
 
-- Total Datasets: 158610
-- Total size of .zip files: 920 GB
+- Total Datasets: 158659
+- Total size of .zip files: 900 GB
 
 ### Files (.csv or .tsv)
 
-- Total Files: 1840748
-- Average Files per Dataset: 11.6
-- Total File errors: 5226
-  - 3051 Assertion Errors (fewer columns in file than expected)
-  - 1861 Unicode Decode Errors
-  - 142 Empty Data Errors
-  - 134 File Not Found Errors
+- Total Files: 1034794
+- Average Files per Dataset: 6.52
+- Total File errors: 6119 (0.6%)
+  - 3247 Assertion Errors (fewer columns in file than expected)
+  - 1905 Unicode Decode Errors
+  - 749 File not Found Errors
+  - 180 Empty Data Errors
   - 34 Lookup Errors
   - 4 "Is a directory" Errors
 
 ### Columns
 
-- Total Columns: 23216172
-- Numeric Columns: 17103365
-- Average Columns per File: 12.61
-- Total Columns errors: 3725
-  - 3720 Value Errors
+- Total Columns: 13972262
+- Numeric Columns: 10053655
+- Average Columns per File: 13.5
+- Total Columns errors: 9330 (0.07%)
+  - 9325 Value Errors
   - 5 Key Errors

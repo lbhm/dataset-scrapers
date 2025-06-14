@@ -153,7 +153,10 @@ class MetadataAnalyzer:
             total_columns += count
             if data_type.lower() in ["int", "integer", "float"]:
                 numeric_columns += count
-        print(f"Total columns: {total_columns}, Numeric columns: {numeric_columns}")
+        print(
+            f"Total columns: {total_columns}, Numeric columns: {numeric_columns}"
+            f"(without max_size filter)"
+        )
 
     def print_metadata_size(self) -> None:
         value, unit = self.convert_kb_to_highest_prefix(self.metadata_total_size_wrecordset)
