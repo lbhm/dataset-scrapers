@@ -53,6 +53,7 @@ Available arguments:
 - workers `-w` or `--workers` (integer): Number of processes that will be used to enrich the croissant metadata in parallel. Defaults to the number of CPUs in the system.
 
 ## 5. Analyze Errors (optional)
+
 Corresponding script: `kaggle/analyze_errors.py`
 
 Available arguments:

@@ -30,7 +30,7 @@ class MetadataDownloader:
         self.api.authenticate()
 
     def start(self, keyword: str, start_index: int) -> None:
-        if keyword == "":
+        if keyword:
             self.download_meta_kaggle_dataset()
             self.create_username_slug()
             refs = self.read_refs_from_file()
@@ -99,29 +99,29 @@ class MetadataDownloader:
                 if refss == []:
                     break
                 refs.extend(refss)
-            return refs
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             print("Error while search Kaggle for a specific keyword:", e)
-            return refs
+        return refs
 
     def read_refs_from_file(self) -> list[str]:
         try:
             with Path.open(self.data_dir / "username_slug.txt") as file:
                 return [line.strip() for line in file]
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             print("Error while reading refs from file:", e)
             return []
 
     def get_croissant_metadata(self, ref: str) -> tuple[dict[str, Any] | Exception | int, int]:
         url = "https://www.kaggle.com/datasets/" + ref + "/croissant/download"
         response = requests.get(url, timeout=20)
-        if response.status_code == 200:
+        if response.status_code == 200:  # noqa: PLR2004
             try:
                 result: dict[str, Any] = json.loads(response.content.decode("utf-8"))
-                return result, 0
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 return e, -2
-        elif response.status_code == 429:
+            else:
+                return result, 0
+        elif response.status_code == 429:  # noqa: PLR2004
             return response.status_code, -1
         else:
             return response.status_code, -2

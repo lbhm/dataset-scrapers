@@ -1,5 +1,6 @@
 import argparse
 import json
+import operator
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -30,14 +31,14 @@ class MetadataAnalyzer:
 
     def convert_to_kb(self, file_size: str) -> float:
         parts = file_size.split()
-        if len(parts) != 2 or parts[1] not in self.unit_multipliers:
+        if len(parts) != 2 or parts[1] not in self.unit_multipliers:  # noqa: PLR2004
             raise ValueError(f"Unexpected file size format occurred: {file_size}")
 
         return float(parts[0]) * self.unit_multipliers[parts[1]]
 
     def convert_kb_to_highest_prefix(self, value: float) -> tuple[float, str]:
         for prefix, multiplier in sorted(
-            self.unit_multipliers.items(), key=lambda item: item[1], reverse=True
+            self.unit_multipliers.items(), key=operator.itemgetter(1), reverse=True
         ):
             if value > multiplier:
                 return value / multiplier, prefix
@@ -151,7 +152,7 @@ class MetadataAnalyzer:
         numeric_columns = 0
         for data_type, count in self.data_type_count.items():
             total_columns += count
-            if data_type.lower() in ["int", "integer", "float"]:
+            if data_type.lower() in {"int", "integer", "float"}:
                 numeric_columns += count
         print(
             f"Total columns: {total_columns}, Numeric columns: {numeric_columns}"
@@ -166,7 +167,7 @@ class MetadataAnalyzer:
         for path in self.source_dir.rglob("croissant_metadata.json"):
             try:
                 self.analyze_metadata(path)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 print(f"Error occurred with {path}: {e}")
 
 

@@ -1,6 +1,7 @@
 import argparse
 import contextlib
 import json
+import operator
 import sys
 from collections.abc import Generator
 from pathlib import Path
@@ -17,8 +18,6 @@ def redirect_to_tqdm() -> Generator[TextIO]:
     try:
         sys.stdout, sys.stderr = map(DummyTqdmFile, orig_out_err)
         yield orig_out_err[0]
-    except Exception as exc:
-        raise exc
     finally:
         sys.stdout, sys.stderr = orig_out_err
 
@@ -43,7 +42,7 @@ class DatasetDownloader:
 
     def convert_to_mb(self, file_size: str) -> float:
         parts = file_size.split()
-        if len(parts) != 2 or parts[1] not in self.unit_multipliers:
+        if len(parts) != 2 or parts[1] not in self.unit_multipliers:  # noqa: PLR2004
             raise ValueError(f"Unexpected file size format occurred: {file_size}")
 
         return float(parts[0]) * self.unit_multipliers[parts[1]]
@@ -81,14 +80,14 @@ class DatasetDownloader:
             # filter datasets by conditions
             try:
                 fulfilled, size = self.conditions_fullfilled(path)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 print(f"Exception occurred with {path}: {e}")
                 sys.exit(1)
             if fulfilled and size is not None:
                 download_list.append((path, size))
 
         # sort by size
-        download_list = sorted(download_list, key=lambda x: x[1])
+        download_list = sorted(download_list, key=operator.itemgetter(1))
         n_downloads = len(download_list)
         # download datasets
         with (
@@ -106,7 +105,7 @@ class DatasetDownloader:
                     continue
                 try:
                     self.download_dataset(path.parent)
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001
                     print(f"Exception occurred with {path}: {e}")
                 progress.update(1)
 

@@ -96,9 +96,9 @@ class HistogramCreator:
         max_score = 6
         if metadata["license"]["name"] != "Unknown":
             score += 1
-        if metadata["alternateName"] != "":
+        if metadata["alternateName"]:
             score += 1
-        if metadata["description"] != "":
+        if metadata["description"]:
             score += 1
         if len(metadata["keywords"]) != 0:
             score += 1
@@ -122,7 +122,7 @@ class HistogramCreator:
                 # catch case where 1923423 = "1,923,423"
                 # NOTE: This causes issues with German-style decimal separators
                 data = data.str.replace(",", "").astype(float)
-            except Exception:
+            except Exception:  # noqa: BLE001
                 # map strings to numbers
                 mapping = {string: idx for idx, string in enumerate(data.unique())}
                 data = Series([mapping[item] for item in data])
@@ -163,7 +163,7 @@ class HistogramCreator:
         # NOTE: Using mixed format is risky and can lead to false date parsing
         try:
             data = pd.to_datetime(data, format="mixed", dayfirst=True, utc=True)
-        except Exception:
+        except Exception:  # noqa: BLE001
             # fallback to general text processing
             column["dataType"] = ["sc:Text"]
             self.process_text(data, column)
@@ -233,7 +233,7 @@ class HistogramCreator:
                 assert len(table.columns) >= len(file_record["field"]), (
                     f"Number of columns and fields do not match: {csv_file}"
                 )
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 self.handle_exception(path, e, 0)
                 continue
             # remove unnecessary spaces
@@ -243,7 +243,7 @@ class HistogramCreator:
                 try:
                     data_type = column["dataType"][0].rsplit(":", 1)[-1].lower()
                     data = table.iloc[:, j].dropna()
-                    if data_type in ["int", "integer", "float"]:
+                    if data_type in {"int", "integer", "float"}:
                         self.process_numerical(data, column)
                     elif data_type == "text":
                         self.process_text(data, column)
@@ -251,7 +251,7 @@ class HistogramCreator:
                         self.process_bool(data, column)
                     elif data_type == "date":
                         self.process_date(data, column)
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001
                     self.handle_exception(path, e, 1)
                     column["error"] = str(e)
                     continue
@@ -262,7 +262,7 @@ class HistogramCreator:
         try:
             with (self.target_dir / file_name).open("w") as file:
                 json.dump(metadata, file, indent=4, ensure_ascii=False, allow_nan=False)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             self.handle_exception(path, e, 0)
             print("NaN error detected with metadata: ", metadata_path)
             return
